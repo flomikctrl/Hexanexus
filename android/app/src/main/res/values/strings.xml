@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Гексанексус</string>
+    <string name="title_activity_main">Гексанексус</string>
+    <string name="package_name">com.hexanexus.puzzle</string>
+    <string name="custom_url_scheme">com.hexanexus.puzzle</string>
+</resources>

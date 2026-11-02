@@ -1,0 +1,28 @@
+{
+  "name": "hexanexus",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "levels:validate": "node scripts/validate-levels.mjs",
+    "android:sync": "npm run build && cap sync android",
+    "android:build": "node scripts/android-apk.mjs --native-only",
+    "android:apk": "node scripts/android-apk.mjs",
+    "android:verify": "node scripts/verify-apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@types/three": "^0.180.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^5.1.0"
+  }
+}

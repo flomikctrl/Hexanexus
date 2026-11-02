@@ -1,0 +1,7 @@
+{
+  "appId": "com.hexanexus.puzzle",
+  "appName": "Гексанексус",
+  "webDir": "dist",
+  "android": {"backgroundColor":"#142e33","allowMixedContent":false},
+  "loggingBehavior":"debug"
+}

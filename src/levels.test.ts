@@ -4,8 +4,8 @@ import {validateCampaign} from './level-validation';
 import {Puzzle} from './state';
 import {project} from './projections';
 import {identity,type Vec} from './math';
-describe('Кампания из 10 уровней',()=>{
-  it('все десять проверяются контрольными ходами и независимым решателем',()=>{expect(validateCampaign()).toHaveLength(10);});
+describe('Кампания из 30 уровней',()=>{
+  it('все тридцать проверяются контрольными ходами и независимым решателем',()=>{expect(validateCampaign()).toHaveLength(30);});
   it('первые три уровня сохраняют исходные данные',()=>{
     const roots:Vec[][]=[[[-1,-1,0],[0,-1,0],[0,0,0]],[[-1,-1,-1],[-1,0,-1],[0,0,0]],[[-1,-1,1],[0,0,0],[1,1,-1]]];
     const answers:Vec[][]=[[[1,0,0],[1,1,0]],[[1,0,0],[1,1,0],[1,0,1]],[[0,1,0],[-1,1,0],[0,1,1],[0,-1,0]]];

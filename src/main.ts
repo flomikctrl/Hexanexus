@@ -1,6 +1,6 @@
 import './style.css';
 import {key,orientations,type Axis,type Vec} from './math';
-import {levels,type Level} from './levels';
+import {levels,levelGroups,type Level} from './levels';
 import {Puzzle} from './state';
 import {solve} from './solver';
 import {parseLevel} from './editor';
@@ -10,6 +10,7 @@ import {act,PointerTapGesture,type Tool} from './interaction';
 import {emptyProgress,readProgress,writeProgress,isFinalLevel,nextLevelIndex,isLevelUnlocked,type Progress} from './progress';
 import {connectedOrder} from './connectivity';
 import {PhoebeAssistant} from './phoebe';
+import {BackgroundMusic} from './music';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 <main id="home" class="screen"><div class="home-copy"><span class="eyebrow">ПРОСТРАНСТВЕННАЯ ГОЛОВОЛОМКА</span><h1>Гексанексус</h1><p class="subtitle">Мастерская силуэтов</p><div class="gold-rule"></div><p class="intro">Одна конструкция. Два силуэта.<br>Найдите форму, которая объединит их.</p><div class="home-actions"><button id="play" class="primary">Играть <span>→</span></button><button id="choose-level">Выбор уровня</button><button id="how-to">Как играть</button><button id="open-editor">Редактор уровней</button></div><small id="progress-summary"></small></div><div class="home-signature">✦ &nbsp; ФОРМА · СВЕТ · РАВНОВЕСИЕ</div></main>
@@ -33,8 +34,19 @@ document.querySelector('.game-footer .actions')!.insertAdjacentHTML('beforeend',
 document.querySelector('.game-footer')!.insertAdjacentHTML('beforeend','<div id="block-legend" aria-label="Обозначения кубиков"><span><i class="base-swatch"></i>Основа</span><span><i class="player-swatch"></i>Ваш блок</span></div>');
 el('projection-help').innerHTML='<div class="diagnostic-colors"><span class="correct">✓ Совпадает</span><span class="missing">+ Не хватает</span><span class="excess">− Лишнее заполнение</span><span class="empty">· Правильно пусто</span></div><div class="diagnostic-scores"><span id="xy-score" title="Проекция на XY, вдоль оси Z"></span><span id="zy-score" title="Проекция на ZY, вдоль оси X"></span></div>';
 el('camera-reset').textContent='Начальный ракурс';
+// Keep the playing surface clear; explanations remain available in the menu.
+el('cells').innerHTML='▦ <span>Ячейки</span>';
+el('initial-view').innerHTML='⌖ <span>Ракурс</span>';
+el('show-errors').innerHTML='◉ <span>Ошибки</span>';
+el('pause').append(el('block-legend'));
+for(const button of Array.from(document.querySelectorAll<HTMLButtonElement>('.game-footer button')))button.setAttribute('aria-label',button.title);
+const music=new BackgroundMusic();
+music.mount(document.querySelector('.home-copy')!);
+music.mount(el('pause'));
 let progress:Progress=emptyProgress();try{progress=readProgress(localStorage,levels.length);}catch{}
 let index=progress.current,puzzle=new Puzzle(levels[index]),draft:Level=structuredClone(levels[index]);
+let selectedGroup=Math.floor(index/5);
+el('level-cards').insertAdjacentHTML('beforebegin','<nav id="level-groups" aria-label="Группы уровней"></nav><h3 id="level-group-name"></h3>');
 if(progress.resume?.level===puzzle.level.name){for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];}
 let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'='home';
 let tool:Tool='place',ghosts=false,layer=0,axis:Axis='Y',projectionMode:ProjectionMode='normal',winShown=false;
@@ -42,7 +54,11 @@ const view=new Scene(el('world'));
 const phoebe=new PhoebeAssistant();
 const rotations=orientations();rotations.forEach((_,i)=>el<HTMLSelectElement>('orientation').add(new Option(`Ориентация ${i+1}`,String(i))));
 function save(){try{writeProgress(localStorage,progress);}catch{}}
-function message(text:string){el('toast').textContent=text;}
+let toastTimer:ReturnType<typeof setTimeout>|undefined;
+function message(text:string){
+  clearTimeout(toastTimer);el('toast').textContent=text;
+  toastTimer=setTimeout(()=>{el('toast').textContent='';},3200);
+}
 function showScreen(next:typeof screen){
   if(editing&&next!=='editor'){editing=false;puzzle=savedPuzzle;}
   screen=next;document.body.dataset.screen=next;
@@ -51,9 +67,9 @@ function showScreen(next:typeof screen){
   phoebe.setScreen(next);
   if(next==='home'||next==='levels'){drawer(false);view.directions.visible=false;}
   if(next==='home')el('progress-summary').textContent=`Пройдено ${levels.filter(l=>progress.completed.includes(l.name)).length} из ${levels.length} испытаний`;
-  if(next==='levels')drawCards();draw();
+  if(next==='levels'){selectedGroup=Math.floor(index/5);drawCards();}draw();
 }
-function startGame(){phoebe.notify({type:'level-start'});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
+function startGame(){phoebe.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
 function loadLevel(i:number){if(!isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current))return;index=i;progress.current=i;custom=false;puzzle=new Puzzle(structuredClone(levels[i]));savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
 function checkWin(){
   if(editing||screen!=='game')return;
@@ -64,7 +80,7 @@ function checkWin(){
   if(!custom&&isFinalLevel(index,levels.length)){
     el('completion-count').textContent=`Пройдено уровней: ${levels.filter(l=>progress.completed.includes(l.name)).length} из ${levels.length}`;
     el<HTMLDialogElement>('campaign-complete').showModal();
-    phoebe.notify({type:'game-win'});
+    phoebe.notify({type:'game-win',levelCount:levels.length});
   }else{el<HTMLDialogElement>('victory').showModal();phoebe.notify({type:'level-win'});}
 }
 function draw(){
@@ -86,7 +102,8 @@ function draw(){
 }
 function updateDiagnosticUI(){
   const enabled=projectionMode==='training';
-  el('show-errors').textContent=enabled?'Скрыть ошибки':'Показать ошибки';
+  el('show-errors').innerHTML=`◉ <span>${enabled?'Скрыть':'Ошибки'}</span>`;
+  el('show-errors').setAttribute('aria-label',enabled?'Скрыть ошибки':'Показать ошибки');
   el('show-errors').setAttribute('aria-pressed',String(enabled));
   el<HTMLSelectElement>('projection-mode').value=projectionMode;
   el('projection-help').hidden=screen!=='game'||!enabled;
@@ -105,7 +122,9 @@ function setTool(next:Tool){tool=next;el('place').classList.toggle('active',tool
 function clickCell(cell:Vec){
   if(screen!=='game'&&screen!=='editor')return;
   if(editing){draft.fixed=draft.fixed.filter(p=>key(p)!==key(cell));draft.available=draft.available.filter(p=>key(p)!==key(cell));const t=el<HTMLSelectElement>('tool').value;if(t==='fixed')draft.fixed.push(cell);if(t==='available')draft.available.push(cell);refreshDraft();return;}
-  if(act(puzzle,tool,cell)){message(tool==='place'?'Кубик установлен. Сравните оба силуэта.':'Кубик возвращён в запас.');draw();if(tool==='place')phoebe.notify({type:'placed'});}
+  const mismatches=()=>diagnose(puzzle.level.targets,puzzle.projections).reduce((sum,result)=>sum+9-result.matches,0);
+  const before=mismatches();
+  if(act(puzzle,tool,cell)){const improved=mismatches()<before;message(tool==='place'?'＋ Кубик установлен':'↶ Кубик в запасе');draw();if(tool==='place')phoebe.notify({type:'placed',improved});}
   else{
     const fixed=puzzle.level.fixed.some(p=>key(p)===key(cell)),placed=puzzle.placed.some(p=>key(p)===key(cell));
     message(tool==='place'?'Нужна свободная соседняя ячейка внутри сетки и кубик в запасе.':fixed?'Это основа конструкции. Удаление запрещено':placed?'Нельзя удалить: другие кубики потеряют связь с неподвижной основой.':'Удалять можно только кубики, которые установили вы.');
@@ -138,7 +157,16 @@ function drawSlice(){
 function drawer(open:boolean){el('cell-drawer').hidden=!open;el('cells').setAttribute('aria-expanded',String(open));if(!open){el<HTMLInputElement>('isolate').checked=false;view.setLayer(null);view.preview(null);}}
 function drawCards(){
   const cards=el('level-cards');cards.replaceChildren();
-  levels.forEach((l,i)=>{const card=document.createElement('button');card.className='level-card';card.dataset.level=String(i);const unlocked=isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current);card.disabled=!unlocked;card.classList.toggle('locked',!unlocked);const n=document.createElement('span');n.className='card-number';n.textContent=String(i+1).padStart(2,'0');const name=document.createElement('h3');name.textContent=l.name.split(' · ')[1]||l.name;const detail=document.createElement('p');detail.textContent=`${['Знакомство с формой','Глубина и пересечения','Пространственный вызов','Два направления','Взгляд с обратной стороны','Переплетённые пути','Каждый блок на счету','Несколько верных решений','Последовательность граней','Финальное испытание'][i]??'Новое испытание'} · ${l.limit} кубика`;const state=document.createElement('small');state.textContent=progress.completed.includes(l.name)?'✓ Пройдено':unlocked?'Начать испытание →':'Сначала пройдите предыдущее испытание';card.classList.toggle('completed',progress.completed.includes(l.name));card.append(n,name,detail,state);card.onclick=()=>loadLevel(i);cards.append(card);});
+  // Follow the active level when opening the list, while keeping six small groups.
+  const groups=el('level-groups');groups.replaceChildren();
+  for(let group=0;group<Math.ceil(levels.length/5);group++){
+    const button=document.createElement('button');button.type='button';button.dataset.group=String(group);
+    button.textContent=String(group*5+1)+'–'+Math.min((group+1)*5,levels.length);
+    button.title=levelGroups[group]??'Испытания';button.setAttribute('aria-label',button.textContent+': '+button.title);
+    button.setAttribute('aria-pressed',String(selectedGroup===group));button.onclick=()=>{selectedGroup=group;drawCards();};groups.append(button);
+  }
+  el('level-group-name').textContent=levelGroups[selectedGroup]??'Испытания';
+  levels.forEach((l,i)=>{if(Math.floor(i/5)!==selectedGroup)return;const card=document.createElement('button');card.className='level-card';card.dataset.level=String(i);const unlocked=isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current);card.disabled=!unlocked;card.classList.toggle('locked',!unlocked);const n=document.createElement('span');n.className='card-number';n.textContent=String(i+1).padStart(2,'0');const name=document.createElement('h3');name.textContent=l.name.split(' · ')[1]||l.name;const detail=document.createElement('p');detail.textContent=`${['Знакомство с формой','Глубина и пересечения','Пространственный вызов','Два направления','Взгляд с обратной стороны','Переплетённые пути','Каждый блок на счету','Несколько верных решений','Последовательность граней','Финальное испытание'][i]??levelGroups[Math.floor(i/5)]??'Новое испытание'} · ${l.limit} кубика`;const state=document.createElement('small');state.textContent=progress.completed.includes(l.name)?'✓ Пройдено':unlocked?'Начать испытание →':'Сначала пройдите предыдущее испытание';card.classList.toggle('completed',progress.completed.includes(l.name));card.append(n,name,detail,state);card.onclick=()=>loadLevel(i);cards.append(card);});
 }
 function closeDialog(id:string){el<HTMLDialogElement>(id).close();}
 function openPause(){view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}

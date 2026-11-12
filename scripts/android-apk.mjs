@@ -4,6 +4,7 @@ import {mkdir,writeFile,copyFile,stat} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const release=process.argv.includes('--release');
 const localJava=join(root,'.tools','java');
 const portableJava=existsSync(localJava)?readdirSync(localJava).filter(n=>n.startsWith('jdk-21')).map(n=>join(localJava,n))[0]:undefined;
 const javaHome=portableJava||process.env.JAVA_HOME;
@@ -11,6 +12,7 @@ const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT||join(root,'.to
 if(!javaHome||!existsSync(join(javaHome,'bin',process.platform==='win32'?'java.exe':'java')))throw Error('Нужен JDK 21: задайте JAVA_HOME или установите его в .tools/java.');
 if(!existsSync(join(sdk,'platforms','android-36','android.jar')))throw Error('Нужен Android SDK 36: задайте ANDROID_HOME или установите SDK в .tools/android-sdk.');
 const env={...process.env,DEBUG:'',JAVA_HOME:javaHome,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,ANDROID_USER_HOME:join(root,'.tools','android-user-home'),GRADLE_USER_HOME:join(root,'.tools','gradle-home'),PATH:[dirname(process.execPath),join(javaHome,'bin'),process.env.PATH].join(process.platform==='win32'?';':':')};
+if(release&&!existsSync(join(env.ANDROID_USER_HOME,'debug.keystore')))throw Error('Для совместимого релиза нужен сохранённый исходный ключ .tools/android-user-home/debug.keystore. Новый ключ автоматически не создаётся.');
 const run=(file,args,cwd=root)=>new Promise((yes,no)=>{const child=spawn(file,args,{cwd,env,stdio:'inherit',windowsHide:true});child.on('error',no);child.on('exit',code=>code===0?yes():no(Error(`${file} exited ${code}`)));});
 await mkdir(env.ANDROID_USER_HOME,{recursive:true});
 await writeFile(join(root,'android','local.properties'),`sdk.dir=${sdk.replaceAll('\\','/')}\n`);
@@ -20,9 +22,10 @@ if(!process.argv.includes('--native-only')){
  await run(process.execPath,[npmCli,'run','build']);
  await run(process.execPath,[join(root,'node_modules','@capacitor','cli','bin','capacitor'),'sync','android']);
 }
-if(process.platform==='win32')await run('cmd.exe',['/d','/s','/c','gradlew.bat assembleDebug --no-daemon --console=plain'],join(root,'android'));
-else await run('./gradlew',['assembleDebug','--no-daemon','--console=plain'],join(root,'android'));
-const apk=join(root,'android','app','build','outputs','apk','debug','app-debug.apk');
+const variant=release?'release':'debug',task=release?'assembleRelease':'assembleDebug';
+if(process.platform==='win32')await run('cmd.exe',['/d','/s','/c',`gradlew.bat ${task} --no-daemon --console=plain`],join(root,'android'));
+else await run('./gradlew',[task,'--no-daemon','--console=plain'],join(root,'android'));
+const apk=join(root,'android','app','build','outputs','apk',variant,`app-${variant}.apk`);
 if((await stat(apk)).size<100000)throw Error('APK отсутствует или подозрительно мал.');
-await mkdir(join(root,'release'),{recursive:true});const output=join(root,'release','Hexanexus-Android.apk');await copyFile(apk,output);console.log(`\nГотовый APK: ${output}`);
+await mkdir(join(root,'release'),{recursive:true});const output=join(root,'release',release?'Hexanexus-v1.1.0.apk':'Hexanexus-Android.apk');await copyFile(apk,output);console.log(`\nГотовый APK: ${output}`);
 await run(process.execPath,[join(root,'scripts','verify-apk.mjs'),output]);

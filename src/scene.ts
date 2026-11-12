@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {allCells, key, type Axis,type Mat, type Vec} from './math';
+import {allCells, key,type Mat, type Vec} from './math';
 import {equal} from './projections';
 import type {Puzzle} from './state';
 import {cellStyle,cellColors,blockAppearance,removalHighlight,type ProjectionMode} from './presentation';
@@ -59,8 +59,16 @@ export class Scene {
   resetCamera(){const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6,4.8,7.6);this.controls.update();this.controls.enableDamping=damping;}
   setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
   setInteraction(tool:Tool,remaining:number,editing=false){this.clearHover();this.tool=tool;this.remaining=remaining;this.editing=editing;}
-  setLayer(layer:{axis:Axis;value:number}|null){const index=layer?{X:0,Y:1,Z:2}[layer.axis]:0;for(const cube of this.objects)cube.visible=!layer||cube.userData.cell[index]===layer.value;}
-  clearHover(){if(this.hover){const material=this.hover.material as T.MeshStandardMaterial;material.emissiveIntensity=this.hover.userData.emission;material.emissive.setHex(this.hover.userData.emissive);if(this.hover.userData.empty){material.opacity=this.showEmpty?.09:0;this.hover.children[0].visible=this.showEmpty;}this.hover=null;}}
+  setHintVisible(visible:boolean){
+    this.clearHover();this.showEmpty=visible;
+    // Change only the empty-cell materials. Keep meshes, camera and puzzle intact.
+    for(const cube of this.objects)if(cube.userData.empty){
+      const allowed=this.editing||!!this.puzzle?.canPlace(cube.userData.cell);
+      (cube.material as T.MeshStandardMaterial).opacity=visible&&allowed?.09:0;
+      cube.children[0].visible=visible&&allowed;
+    }
+  }
+  clearHover(){if(this.hover){const material=this.hover.material as T.MeshStandardMaterial;material.emissiveIntensity=this.hover.userData.emission;material.emissive.setHex(this.hover.userData.emissive);if(this.hover.userData.empty){const visible=this.showEmpty&&(this.editing||!!this.puzzle?.canPlace(this.hover.userData.cell));material.opacity=visible?.09:0;this.hover.children[0].visible=visible;}this.hover=null;}}
   preview(cell:Vec|null){
     this.clearHover();if(!cell||this.busy||this.menu)return;
     const cube=this.objects.find(o=>key(o.userData.cell)===key(cell));if(!cube)return;
@@ -73,10 +81,10 @@ export class Scene {
     this.clearHover();const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);this.ray.setFromCamera(this.mouse,this.camera);
     if(this.busy||this.menu)return;
     this.group.updateWorldMatrix(true,true);
-    const hits=this.ray.intersectObjects(this.objects.filter(o=>o.visible&&(this.editing||!o.userData.empty)),false);
+    const hits=this.ray.intersectObjects(this.objects.filter(o=>o.visible&&(this.editing||!o.userData.empty||this.tool==='place'&&this.showEmpty&&!!this.puzzle?.canPlace(o.userData.cell))),false);
     const hit=hits[0];
     if(hit){
-      if(this.editing||this.tool==='remove')this.preview(hit.object.userData.cell);
+      if(this.editing||this.tool==='remove'||hit.object.userData.empty)this.preview(hit.object.userData.cell);
       else if(hit.face){
         // face.normal is in the cube's local axes, just like grid coordinates.
         // Dominant-axis snapping handles the small bevels of RoundedBoxGeometry.

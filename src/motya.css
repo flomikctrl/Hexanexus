@@ -1,0 +1,27 @@
+.motya{position:fixed;right:20px;bottom:var(--motya-bottom,18px);width:max-content;max-width:calc(100vw - 24px);pointer-events:none;z-index:10;--motya-size:175px;filter:drop-shadow(0 5px 8px #071b2b38)}
+.motya-character{display:block;pointer-events:auto;border:0!important;border-radius:0;padding:0!important;background:transparent!important;line-height:0;transform-origin:50% 92%;cursor:pointer;touch-action:manipulation;outline:none;animation:idle-float 7s ease-in-out infinite}
+.motya-character img{display:block;height:var(--motya-size);width:auto;max-width:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none;opacity:1;transition:none;animation:none}
+.motya-character img[hidden]{display:none!important}
+.motya-character:focus-visible{filter:drop-shadow(0 0 8px #e8cb91)}
+.motya-speech{position:absolute;bottom:calc(100% + 10px);right:0;width:max-content;max-width:min(230px,calc(100vw - 32px));padding:11px 14px;margin:0;color:#e9e5f4;background:#292e44ed;border:1px solid #c3b5dd88;border-radius:14px 14px 4px 14px;font-size:12px;line-height:1.6;box-shadow:0 5px 18px #0003;pointer-events:none}
+.motya[data-animation=sad] .motya-character{animation:sad-sway 2.4s ease-in-out infinite}.motya[data-animation=shock] .motya-character{animation:shock-bounce .65s ease-out 1}.motya[data-animation=tap] .motya-character{animation:motya-tap .65s ease-out 1}.motya[data-animation=victory] .motya-character{animation:victory-bounce .85s ease-in-out 5}.motya[data-animation=final-victory] .motya-character{animation:victory-bounce .75s ease-in-out 7;filter:drop-shadow(0 0 13px #f4d48488)}
+.motya-setting{display:flex;align-items:center;gap:9px;font-size:12px;margin:18px 0;color:#d5d7e8}.motya-setting input{accent-color:#ad9dd1}#motya-asset-warning{font-size:11px;color:#efc399}
+.motya.motya--dialog{position:relative;right:auto;bottom:auto;width:100%;max-width:100%;display:flex;align-items:center;flex-direction:column;margin:10px auto 18px;--motya-size:145px!important}
+.motya--dialog .motya-speech{position:relative;bottom:auto;right:auto;max-width:100%;width:max-content;text-align:center;margin:0 0 9px;padding:9px 12px;font-size:12px}.motya--dialog .motya-character{flex-shrink:0}
+@keyframes idle-float{0%,100%{transform:translateY(0) rotate(-.5deg)}35%{transform:translateY(-3px) rotate(.5deg)}70%,85%{transform:translateY(0) rotate(-.5deg)}91%{transform:translateY(-7px) rotate(.5deg)}96%{transform:translateY(0)}}
+@keyframes sad-sway{0%,100%{transform:translateY(4px) rotate(-1.5deg)}50%{transform:translateY(6px) rotate(1.5deg)}}
+@keyframes shock-bounce{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,-13px) rotate(-4deg)}45%{transform:translate(3px,-9px) rotate(4deg)}65%{transform:translate(-2px,-4px) rotate(-2deg)}80%{transform:translate(2px,0)}}
+@keyframes victory-bounce{0%,100%{transform:translateY(0) rotate(-2deg)}45%{transform:translateY(-14px) rotate(3deg)}75%{transform:translateY(0) rotate(-2deg)}}
+@keyframes motya-tap{0%,100%{transform:translateY(0)}45%{transform:translateY(-8px) rotate(2deg)}}
+@media(max-width:650px){.motya{right:12px;--motya-size:100px}.motya-speech{right:calc(100% + 8px);bottom:10px;max-width:min(210px,calc(100vw - 140px));font-size:10px;padding:9px 11px}.motya.motya--dialog{--motya-size:105px!important}.motya--dialog .motya-speech{right:auto;bottom:auto;max-width:100%;font-size:11px}}
+@media(max-height:700px){.motya.motya--dialog{--motya-size:90px!important;margin:7px auto 12px}.motya--dialog .motya-speech{padding:7px 10px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.motya .motya-character{animation:none!important;transition:none!important}}
+.motya[hidden]{display:none!important}.motya-speech[hidden]{display:none!important}
+
+/* Every supplied outfit uses the same square canvas. Keep a stable display box. */
+.motya-character{width:var(--motya-size);height:var(--motya-size);min-height:0!important}
+.motya-character img{width:100%;height:100%;max-width:100%;object-fit:contain}
+.motya.motya--wardrobe{position:relative;inset:auto;display:grid;place-items:center;width:100%;height:100%;max-width:none;--motya-size:var(--wardrobe-sprite-size,220px)!important;filter:drop-shadow(0 8px 12px #0002)}
+.motya--wardrobe .motya-character{animation:none!important;pointer-events:none}.motya--wardrobe .motya-speech{display:none}
+.motya.motya--dialog{--motya-size:135px!important}
+@media(max-width:650px){.motya{--motya-size:112px}.motya-speech{max-width:min(200px,calc(100vw - 155px))}}

@@ -1,6 +1,6 @@
 {
   "name": "hexanexus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,10 @@
     "android:sync": "npm run build && cap sync android",
     "android:build": "node scripts/android-apk.mjs --native-only",
     "android:apk": "node scripts/android-apk.mjs",
-    "android:verify": "node scripts/verify-apk.mjs"
+    "android:release": "node scripts/android-apk.mjs --release",
+    "android:verify": "node scripts/verify-apk.mjs",
+    "dev:editor": "vite --host 127.0.0.1 --open /?editor=1",
+    "motya:validate": "node scripts/validate-motya-assets.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

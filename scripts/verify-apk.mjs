@@ -17,6 +17,7 @@ const js=files.filter(n=>n.startsWith('assets/public/assets/')&&n.endsWith('.js'
 const inspect=join(root,'.tools','apk-inspection');mkdirSync(inspect,{recursive:true});run(join(java,'bin',exe('jar')),['xf',apk,'assets/capacitor.config.json','assets/public/audio/silhouette-loop.wav',...spriteFiles,...js],inspect);
 const config=JSON.parse(readFileSync(join(inspect,'assets/capacitor.config.json'),'utf8'));if(config.appId!=='com.hexanexus.puzzle'||config.server?.url)throw Error('Некорректная production-конфигурация.');
 const code=js.map(n=>readFileSync(join(inspect,n),'utf8')).join('\n');
+if(!js.some(file=>file.includes('hint-worker'))||!code.includes('Все шаги решения показаны!')||code.includes('setHintVisible'))throw Error('Step hints or offline solver worker missing; legacy toggle must be absent');
 const levelNames=[...readFileSync('src/levels.ts','utf8').matchAll(/make\('([^']+)'/g)].map(m=>m[1]);
 if(!levelNames.length)throw Error('No campaign levels found');
 for(const name of levelNames)if(!code.includes(name))throw Error('Missing bundled level: '+name);
@@ -54,9 +55,12 @@ iconPairs.push(['assets/public/icons/favicon.ico','public/icons/favicon.ico']);
 run(join(java,'bin',exe('jar')),['xf',apk,'assets/public/index.html',...iconPairs.map(([file])=>file)],inspect);
 for(const [packaged,source]of iconPairs){if(!readFileSync(join(inspect,packaged)).equals(readFileSync(source)))throw Error('Bundled icon differs: '+packaged);}
 const manifestTree=run(join(tools,exe('aapt')),['dump','xmltree',apk,'AndroidManifest.xml']);
-const publicRelease=apk.endsWith('Hexanexus-v1.1.0.apk');
+const publicRelease=/Hexanexus-v[\d.]+\.apk$/.test(apk);
+const version=JSON.parse(readFileSync('package.json','utf8')).version;
+const versionCode=readFileSync('android/app/build.gradle','utf8').match(/versionCode (\d+)/)?.[1];
+if(!badging.includes(`versionName='${version}'`)||!badging.includes(`versionCode='${versionCode}'`))throw Error('Wrong APK version');
+if(!code.includes('hexanexus.arcade.session.v1')||!code.includes('hexanexus.arcade.records.v1')||!code.includes('Бесконечная мастерская'))throw Error('Endless mode missing from bundle');
 if(publicRelease){
- if(!badging.includes("versionCode='2'")||!badging.includes("versionName='1.1.0'"))throw Error('Wrong release version');
  if(badging.includes('application-debuggable')||/android:debuggable[^\n]+0xffffffff/.test(manifestTree))throw Error('Public release is debuggable');
  if(files.some(file=>/(?:^|\/)(?:node_modules|\.tools)\/|\.(?:keystore|jks|zip|map)$|(?:^|\/)\.env(?:\.|$)|\.test\.[jt]s$/.test(file)))throw Error('Development files or private data in release');
 }
@@ -77,7 +81,7 @@ if(!readFileSync(join(inspect,'assets/public/index.html'),'utf8').includes('href
 console.log('Verified Motya launcher: 10 legacy/round PNGs, 2 adaptive layers and XMLs, 9 web icon files; manifest references confirmed.');
 mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/app-icons-verification.json',JSON.stringify({apk,legacyAndRoundIcons:10,adaptiveLayers:2,adaptiveXmls:2,webIconFiles:9,manifestReferencesVerified:true,packagedIconsMatchSources:true,packagedFiles:iconPairs.map(([file])=>file)},null,2));
 const signature=run(join(java,'bin',exe('java')),['-jar',join(tools,'lib','apksigner.jar'),'verify','--verbose','--print-certs',apk]);if(!signature.includes('Verified using'))throw Error('Подпись не подтверждена.');
-if(publicRelease&&!signature.includes('7fd9293ff232d5623937b05a6da52032092900a8de241db1c9fcdfca12218c68'))throw Error('Release certificate differs from existing installations');
+if(!signature.includes('7fd9293ff232d5623937b05a6da52032092900a8de241db1c9fcdfca12218c68'))throw Error('APK certificate differs from existing installations');
 const musicHash=createHash('sha256').update(readFileSync(join(inspect,'assets/public/audio/silhouette-loop.wav'))).digest('hex');
 if(musicHash!==createHash('sha256').update(readFileSync('public/audio/silhouette-loop.wav')).digest('hex'))throw Error('Bundled music differs from the source asset');
 const report={musicSha256:musicHash,apk,size:statSync(apk).size,sha256:createHash('sha256').update(readFileSync(apk)).digest('hex'),appId:config.appId,levels:levelNames.length,mascotLines:dialogue.length,motyaSkins:skins.length,packagedMotyaSprites:spriteFiles.length,editorExcluded:true,packagedMusic:true,webFiles:files.filter(n=>n.startsWith('assets/public/')).length,networkPermission:false,signatureVerified:true,signature};mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/apk-verification.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));

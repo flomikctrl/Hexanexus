@@ -1,6 +1,6 @@
 {
   "name": "hexanexus",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,9 @@
     "android:build": "node scripts/android-apk.mjs --native-only",
     "android:apk": "node scripts/android-apk.mjs",
     "android:release": "node scripts/android-apk.mjs --release",
+    "android:test": "node scripts/android-apk.mjs --test",
+    "arcade:simulate": "node scripts/simulate-arcade.mjs",
+    "hints:validate": "node scripts/validate-hints.mjs",
     "android:verify": "node scripts/verify-apk.mjs",
     "dev:editor": "vite --host 127.0.0.1 --open /?editor=1",
     "motya:validate": "node scripts/validate-motya-assets.mjs"

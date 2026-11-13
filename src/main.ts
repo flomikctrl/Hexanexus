@@ -13,14 +13,17 @@ import type {DevEditor} from './dev-editor';
 import {BackgroundMusic} from './music';
 import {CampaignRewards,completedRoyalCampaign} from './campaign-rewards';
 import type {MotyaSkinId} from './motya-skins';
+import {ArcadeUI} from './arcade-ui';
+import './menu.css';
+import {CampaignHints} from './campaign-hints';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
-<main id="home" class="screen"><div class="home-copy"><span class="eyebrow">ПРОСТРАНСТВЕННАЯ ГОЛОВОЛОМКА</span><h1>Гексанексус</h1><p class="subtitle">Мастерская силуэтов</p><div class="gold-rule"></div><p class="intro">Одна конструкция. Два силуэта.<br>Найдите форму, которая объединит их.</p><div class="home-actions"><button id="play" class="primary">Играть <span>→</span></button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Гардероб</button><button id="open-settings">Настройки</button></div><small id="progress-summary"></small></div><div class="home-signature">✦ &nbsp; ФОРМА · СВЕТ · РАВНОВЕСИЕ</div></main>
+<main id="home" class="screen"><div class="home-copy"><span class="eyebrow">ПРОСТРАНСТВЕННАЯ ГОЛОВОЛОМКА</span><h1>Гексанексус</h1><p class="subtitle">Мастерская силуэтов</p><div class="gold-rule"></div><p class="intro">Одна конструкция. Два силуэта.<br>Найдите форму, которая объединит их.</p><div class="home-actions"><button id="play" class="primary">Кампания <span aria-hidden="true">→</span></button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Гардероб</button><button id="open-settings">Настройки</button></div><small id="progress-summary"></small></div><div class="home-signature"><span id="home-version"></span><span class="home-motto">✦ &nbsp; ФОРМА · СВЕТ · РАВНОВЕСИЕ</span></div></main>
 <section id="level-screen" class="screen" hidden><div class="page-heading"><div><small>МАСТЕРСКАЯ СИЛУЭТОВ</small><h2>Выберите испытание</h2></div><button id="levels-back">← Главное меню</button></div><div id="level-cards"></div><p class="screen-note">Все испытания доступны. Прогресс сохраняется в этом браузере.</p></section>
 <section id="game-screen" hidden><header class="game-header"><div><small id="game-kicker">МАСТЕРСКАЯ СИЛУЭТОВ</small><h2 id="level-name"></h2></div><div class="game-status"><div class="inventory"><strong id="remaining"></strong><span>кубиков<br>в запасе</span></div><button id="menu" title="Открыть меню игры">☰ <span>Меню</span></button></div></header>
 <div id="projection-help" hidden>Золотые стрелки — направления двух проекций.<br><span class="correct">✓ Совпало</span> · <span class="missing">+ Нужен кубик</span> · <span class="excess">− Лишний</span> · тёмный — пусто</div>
 <div id="toast" role="status" aria-live="polite"></div>
-<footer class="game-footer"><div class="toolbox"><div class="tool-modes" role="group" aria-label="Действие с кубиками"><button id="place" aria-pressed="true" class="active" title="Поставить кубик в свободную позицию">＋ Поставить</button><button id="remove" aria-pressed="false" title="Удалять только кубики, которые установили вы">− Удалить</button></div></div><div class="actions"><button id="undo" title="Отменить последнее действие">↶ <span>Отменить</span></button><button id="reset" title="Вернуть исходные кубики">⟳ <span>Сбросить</span></button><button id="hint" aria-pressed="false" title="Показать допустимые места установки">✧ <span>Подсказка</span></button></div><p id="control-note">Перетаскивайте фон — обзор · Колесо — масштаб</p></footer>
+<footer class="game-footer"><div class="toolbox"><div class="tool-modes" role="group" aria-label="Действие с кубиками"><button id="place" aria-pressed="true" class="active" title="Поставить кубик в свободную позицию">＋ Поставить</button><button id="remove" aria-pressed="false" title="Удалять только кубики, которые установили вы">− Удалить</button></div></div><div class="actions"><button id="undo" title="Отменить последнее действие">↶ <span>Отменить</span></button><button id="reset" title="Вернуть исходные кубики">⟳ <span>Сбросить</span></button><button id="hint" title="Показать следующий шаг решения">✧ <span>Подсказка</span></button></div><p id="control-note">Перетаскивайте фон — обзор · Колесо — масштаб</p></footer>
 </section>
 <dialog id="settings" aria-labelledby="settings-title"><div class="collection-heading"><h2 id="settings-title">Настройки</h2><button id="settings-close" aria-label="Закрыть настройки">✕</button></div><div id="music-settings"></div><div id="mascot-settings"></div><button id="how-to">Как играть</button></dialog>
 <dialog id="pause"><small>ГЕКСАНЕКСУС</small><h2>Пауза в мастерской</h2><button id="resume" class="primary">Продолжить</button><button id="camera-reset" title="Вернуть только камеру, сохранив кубики">Сбросить ракурс</button><button id="pause-help">Как играть</button><label class="mode-label">Силуэты<select id="projection-mode"><option value="normal">Только целевые картинки</option><option value="training">Обучение: сравнение цветами</option></select></label><button id="pause-settings">Настройки</button><button id="pause-levels">Выбор уровней</button><button id="pause-home">Главное меню</button></dialog>
@@ -37,6 +40,9 @@ document.querySelector('.game-footer .actions')!.insertAdjacentHTML('beforeend',
 document.querySelector('.game-footer')!.insertAdjacentHTML('beforeend','<div id="block-legend" aria-label="Обозначения кубиков"><span><i class="base-swatch"></i>Основа</span><span><i class="player-swatch"></i>Ваш блок</span></div>');
 el('projection-help').innerHTML='<div class="diagnostic-colors"><span class="correct">✓ Совпадает</span><span class="missing">+ Не хватает</span><span class="excess">− Лишнее заполнение</span><span class="empty">· Правильно пусто</span></div><div class="diagnostic-scores"><span id="xy-score" title="Проекция на XY, вдоль оси Z"></span><span id="zy-score" title="Проекция на ZY, вдоль оси X"></span></div>';
 el('camera-reset').textContent='Начальный ракурс';
+el('settings').insertAdjacentHTML('beforeend','<p id="app-version"></p>');
+el('app-version').textContent=`Версия: ${import.meta.env.VITE_APP_VERSION}`;
+el('home-version').textContent=`v${import.meta.env.VITE_APP_VERSION}`;
 // Keep the playing surface clear; explanations remain available in the menu.
 el('initial-view').innerHTML='⌖ <span>Ракурс</span>';
 el('show-errors').innerHTML='◉ <span>Ошибки</span>';
@@ -53,10 +59,13 @@ let selectedGroup=Math.floor(index/5);
 el('level-cards').insertAdjacentHTML('beforebegin','<nav id="level-groups" aria-label="Группы уровней"></nav><h3 id="level-group-name"></h3>');
 if(progress.resume?.level===puzzle.level.name){for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];}
 let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'='home';
-let tool:Tool='place',hintVisible=false,projectionMode:ProjectionMode='normal',winShown=false;
+let tool:Tool='place',projectionMode:ProjectionMode='normal',winShown=false;
 const view=new Scene(el('world'));
 const motya=new MotyaAssistant(skin=>skin!=='royal'||rewards.royalUnlocked);
 const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'));
+let arcade:ArcadeUI|undefined;
+const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!editing&&!arcade?.active,message);
+arcade=new ArcadeUI(view,motya,()=>showScreen('game'),()=>showScreen('home'),message);
 let editor:DevEditor|undefined;
 function save(){try{writeProgress(localStorage,progress);}catch{}}
 let toastTimer:ReturnType<typeof setTimeout>|undefined;
@@ -65,6 +74,7 @@ function message(text:string){
   toastTimer=setTimeout(()=>{el('toast').textContent='';},3200);
 }
 function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
+  if(next!=='game')arcade?.leave();
   if(next==='editor'&&!import.meta.env.DEV)return;
   if(next!=='wardrobe')wardrobe.close();
   if(editing&&next!=='editor'){editing=false;puzzle=savedPuzzle;}
@@ -76,11 +86,13 @@ function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
   if(next==='home')el('progress-summary').textContent=`Пройдено ${levels.filter(l=>progress.completed.includes(l.name)).length} из ${levels.length} испытаний`;
   if(next==='levels'){selectedGroup=Math.floor(index/5);drawCards();}draw();
 }
-function startGame(){motya.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
-function loadLevel(i:number){if(!isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current))return;index=i;progress.current=i;custom=false;puzzle=new Puzzle(structuredClone(levels[i]));savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
+function startGame(){arcade?.leave();motya.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
+function loadLevel(i:number){if(!isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current))return;campaignHints.clear();index=i;progress.current=i;custom=false;puzzle=new Puzzle(structuredClone(levels[i]));savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
 function checkWin(){
+  if(arcade?.active)return;
   if(editing||screen!=='game')return;
   if(!puzzle.won){winShown=false;return;}
+  campaignHints.clear();
   if(winShown)return;
   winShown=true;if(!custom&&!progress.completed.includes(levels[index].name)){progress.completed.push(levels[index].name);save();}
   const royalJustUnlocked=!custom&&rewards.recordCampaignCompletion(progress.completed);
@@ -93,11 +105,15 @@ function checkWin(){
   }else{el<HTMLDialogElement>('victory').showModal();motya.notify({type:'level-win'});}
 }
 function draw(){
+  if(arcade?.active){campaignHints.clear();arcade.draw();return;}
+  if(editing)campaignHints.clear();
   view.setInteraction(tool,puzzle.level.limit-puzzle.placed.length,editing);
-  view.sync(puzzle,false,hintVisible,editing?'normal':projectionMode);
+  view.sync(puzzle,false,false,editing?'normal':projectionMode);
+  campaignHints.refresh();
   view.directions.visible=screen==='game'&&projectionMode==='training';
   el('level-name').textContent=editing?'Редактор':puzzle.level.name;
   el('remaining').textContent=String(puzzle.level.limit-puzzle.placed.length);
+  for(const next of ['place','remove']){el(next).classList.toggle('active',next===tool);el(next).setAttribute('aria-pressed',String(next===tool));}
   el<HTMLButtonElement>('undo').disabled=editing||!puzzle.history.length;
   updateDiagnosticUI();
   el('control-note').textContent=tool==='place'?'Наведите на грань кубика · Перетаскивание — обзор':'Удалить: нажмите на свой кубик · Нельзя разрывать конструкцию';
@@ -117,14 +133,16 @@ function updateDiagnosticUI(){
   el('zy-score').textContent=`ZY: ${results[1].matches} / 9 совпадений`;
 }
 function setProjectionMode(mode:ProjectionMode){
+  if(arcade?.active)return;
   projectionMode=mode;
   view.updateProjections(puzzle,editing?'normal':mode);
   view.directions.visible=screen==='game'&&mode==='training';
   updateDiagnosticUI();
   if(mode==='training')motya.notify({type:'diagnostics',hasErrors:diagnose(puzzle.level.targets,puzzle.projections).some(r=>r.matches<9)});
 }
-function setTool(next:Tool){tool=next;el('place').classList.toggle('active',tool==='place');el('remove').classList.toggle('active',tool==='remove');el('place').setAttribute('aria-pressed',String(tool==='place'));el('remove').setAttribute('aria-pressed',String(tool==='remove'));draw();}
+function setTool(next:Tool){if(arcade?.active){arcade.setTool(next);return;}tool=next;el('place').classList.toggle('active',tool==='place');el('remove').classList.toggle('active',tool==='remove');el('place').setAttribute('aria-pressed',String(tool==='place'));el('remove').setAttribute('aria-pressed',String(tool==='remove'));draw();}
 function clickCell(cell:Vec){
+  if(arcade?.active){arcade.act(cell);return;}
   if(screen!=='game'&&screen!=='editor')return;
   if(editing){editor?.editCell(cell);return;}
   const mismatches=()=>diagnose(puzzle.level.targets,puzzle.projections).reduce((sum,result)=>sum+9-result.matches,0);
@@ -140,7 +158,7 @@ view.onCell=clickCell;
 // Observe a rejected zero-stock click without changing the scene's Raycaster
 // or sending an action to the puzzle. A separate gesture guard filters drags.
 const motyaGesture=new PointerTapGesture();let emptyStockAtPress=false;
-view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockAtPress=screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
+view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockAtPress=!arcade?.active&&screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
 view.renderer.domElement.addEventListener('pointermove',event=>motyaGesture.move(event.pointerId,event.clientX,event.clientY));
 view.renderer.domElement.addEventListener('pointerup',event=>{if(event.button!==0)return;if(motyaGesture.end(event.pointerId,event.clientX,event.clientY)&&emptyStockAtPress&&screen==='game'&&tool==='place'&&view.ray.intersectObjects(view.objects.filter(o=>o.visible&&!o.userData.empty),false).length)motya.notify({type:'forbidden',reason:'stock'});emptyStockAtPress=false;});
 for(const type of ['pointerleave','pointercancel'])view.renderer.domElement.addEventListener(type,()=>{motyaGesture.cancel();emptyStockAtPress=false;});
@@ -159,7 +177,7 @@ function drawCards(){
 }
 function closeDialog(id:string){el<HTMLDialogElement>(id).close();}
 function openSettings(){motya.setScreen('settings');view.controls.enabled=false;el<HTMLDialogElement>('settings').showModal();}
-function openPause(){view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
+function openPause(){if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
 el<HTMLDialogElement>('pause').addEventListener('close',()=>{view.controls.enabled=screen==='game'||screen==='editor';});
 el('open-wardrobe').onclick=()=>showScreen('wardrobe');
 el('open-settings').onclick=openSettings;el('settings-close').onclick=()=>closeDialog('settings');
@@ -170,15 +188,9 @@ el('resume').onclick=()=>closeDialog('pause');el('pause-home').onclick=()=>{clos
 el('camera-reset').onclick=()=>{view.resetCamera();closeDialog('pause');message('Ракурс восстановлен. Форма осталась на месте.');};
 el('initial-view').onclick=()=>{view.resetCamera();message('Начальный ракурс восстановлен.');};
 el('place').onclick=()=>setTool('place');el('remove').onclick=()=>setTool('remove');
-el('undo').onclick=()=>{puzzle.undo();draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{puzzle.reset();draw();message('Уровень сброшен.');};
+el('undo').onclick=()=>{if(arcade?.active)return;puzzle.undo();draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
 el<HTMLSelectElement>('projection-mode').onchange=e=>setProjectionMode((e.target as HTMLSelectElement).value as ProjectionMode);
 el('show-errors').onclick=()=>setProjectionMode(projectionMode==='normal'?'training':'normal');
-el('hint').onclick=()=>{
-  hintVisible=!hintVisible;view.setHintVisible(hintVisible);
-  el('hint').setAttribute('aria-pressed',String(hintVisible));
-  el('hint').title=hintVisible?'Скрыть допустимые места установки':'Показать допустимые места установки';
-  el('hint').setAttribute('aria-label',el('hint').title);
-};
 el('next').onclick=()=>{closeDialog('victory');const next=nextLevelIndex(index,levels.length);if(next!==null)loadLevel(next);else showScreen('levels');};el('continue').onclick=()=>closeDialog('victory');el('victory-levels').onclick=()=>{closeDialog('victory');showScreen('levels');};
 el('completion-home').onclick=()=>{closeDialog('campaign-complete');showScreen('home');};
 el('completion-levels').onclick=()=>{closeDialog('campaign-complete');showScreen('levels');};
@@ -188,7 +200,7 @@ el('royal-reward-wardrobe').onclick=()=>{closeDialog('campaign-complete');showSc
 const tutorial=[
   ['Осматривай конструкцию, вращая камеру мышкой','Зажми левую кнопку на фоне и веди мышь. Колесо приближает и отдаляет. Кубики при этом остаются на своих местах.','◈'],
   ['Сопоставь фигуру с двумя боковыми силуэтами','Две золотые панели стоят параллельно соседним граням сетки. Если вдоль линии взгляда есть хотя бы один кубик, клетка силуэта заполнена.','▦'],
-  ['Устанавливай недостающие кубики','Выбери «Поставить» и наведи на грань существующего кубика. Предпросмотр появится в соседней ячейке. Клик присоединит блок этой гранью. По диагонали и отдельно строить нельзя. «Подсказка» показывает прозрачные кубики в допустимых местах. Нажми на такой кубик для установки; повторное нажатие «Подсказка» скрывает их.','＋'],
+  ['Устанавливай недостающие кубики','Выбери «Поставить» и наведи на грань существующего кубика. Предпросмотр появится в соседней ячейке. Клик присоединит блок этой гранью. По диагонали и отдельно строить нельзя. Каждое нажатие «Подсказка» открывает следующий пронумерованный шаг: золотой + означает установку, оранжевый − означает удаление. Маркеры не являются настоящими кубиками; выполняйте шаги по порядку через грани конструкции.','＋'],
   ['При необходимости удаляй поставленные блоки','Переключись на «Удалить»: твои кубики подсвечиваются красным при наведении. Клик возвращает выбранный кубик в запас. Основу и кубики, удаление которых оторвёт остальные блоки, убрать нельзя.','−'],
   ['Добейся совпадения обоих силуэтов','Используй ограниченный запас и сопоставляй обе стороны. Через меню можно включить сравнение цветами: зелёный — совпало, жёлтый — нужен кубик, красный — лишний.','✦']
 ];

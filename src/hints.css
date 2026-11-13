@@ -1,0 +1,5 @@
+.game-footer #hint-status{display:block;margin:1px 0 0;font-size:9px;line-height:1.4;text-align:center;color:#e0ca94;letter-spacing:.1px}
+.game-footer #hint-status[hidden]{display:none}
+#hint[aria-busy=true]{border-color:#b5a37566}
+.arcade-playing #hint-status{display:none!important}
+.campaign-hints-visible #toast{bottom:calc(154px + env(safe-area-inset-bottom,0px))}

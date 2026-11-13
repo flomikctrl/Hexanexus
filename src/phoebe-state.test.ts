@@ -3,6 +3,15 @@ import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {PhoebeController,readPhoebeSetting,savePhoebeSetting,phoebeSettingKey,friendlyLines} from './phoebe-state';
 describe('Независимые реакции Фиби',()=>{
   beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(10000);});afterEach(()=>vi.useRealTimers());
+  it('аркада: ошибка показывает SHOCK и успех не сбрасывает её раньше времени',()=>{
+    const p=new PhoebeController();p.notify({type:'arcade',reaction:'start'});p.notify({type:'arcade',reaction:'error'});expect(p.state.emotion).toBe('SHOCK');expect(p.notify({type:'arcade',reaction:'success'})).toBe(false);vi.advanceTimersByTime(2599);expect(p.state.emotion).toBe('SHOCK');vi.advanceTimersByTime(1);expect(p.state.emotion).toBe('IDLE');expect(vi.getTimerCount()).toBe(0);
+  });
+  it('аркада: реплики ограничены по частоте, конец партии имеет приоритет',()=>{
+    const p=new PhoebeController();p.notify({type:'arcade',reaction:'start'});expect(p.notify({type:'arcade',reaction:'start'})).toBe(true);p.notify({type:'arcade',reaction:'record'});expect(p.state.message).toMatch(/рекорд|лучше|горжусь/);expect(p.notify({type:'arcade',reaction:'record'})).toBe(false);expect(p.notify({type:'arcade',reaction:'end'})).toBe(true);expect(p.state.emotion).toBe('SAD');p.dispose();expect(vi.getTimerCount()).toBe(0);
+  });
+  it('аркада: потеря жизни сразу прерывает празднование рекорда',()=>{
+    const p=new PhoebeController();p.notify({type:'arcade',reaction:'record'});expect(p.notify({type:'arcade',reaction:'error'})).toBe(true);expect(p.state.emotion).toBe('SHOCK');expect(p.notify({type:'arcade',reaction:'success'})).toBe(false);vi.advanceTimersByTime(2600);expect(p.state.emotion).toBe('IDLE');
+  });
   it('начинает с IDLE и даёт приветствие/реакцию нового уровня',()=>{
     const p=new PhoebeController();expect(p.state.emotion).toBe('IDLE');expect(p.notify({type:'greeting'})).toBe(true);expect(phoebeLines.greeting).toContain(p.state.message);p.notify({type:'level-start'});expect(p.state.emotion).toBe('IDLE');expect(phoebeLines.start).toContain(p.state.message);
   });

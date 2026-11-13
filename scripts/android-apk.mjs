@@ -1,10 +1,11 @@
 import {spawn} from 'node:child_process';
-import {existsSync,readdirSync} from 'node:fs';
+import {existsSync,readdirSync,readFileSync} from 'node:fs';
 import {mkdir,writeFile,copyFile,stat} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const release=process.argv.includes('--release');
+const version=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
 const localJava=join(root,'.tools','java');
 const portableJava=existsSync(localJava)?readdirSync(localJava).filter(n=>n.startsWith('jdk-21')).map(n=>join(localJava,n))[0]:undefined;
 const javaHome=portableJava||process.env.JAVA_HOME;
@@ -27,5 +28,5 @@ if(process.platform==='win32')await run('cmd.exe',['/d','/s','/c',`gradlew.bat $
 else await run('./gradlew',[task,'--no-daemon','--console=plain'],join(root,'android'));
 const apk=join(root,'android','app','build','outputs','apk',variant,`app-${variant}.apk`);
 if((await stat(apk)).size<100000)throw Error('APK отсутствует или подозрительно мал.');
-await mkdir(join(root,'release'),{recursive:true});const output=join(root,'release',release?'Hexanexus-v1.1.0.apk':'Hexanexus-Android.apk');await copyFile(apk,output);console.log(`\nГотовый APK: ${output}`);
+await mkdir(join(root,'release'),{recursive:true});const output=join(root,'release',release?`Hexanexus-v${version}.apk`:process.argv.includes('--test')?`Hexanexus-v${version}-test.apk`:'Hexanexus-Android.apk');await copyFile(apk,output);console.log(`\nГотовый APK: ${output}`);
 await run(process.execPath,[join(root,'scripts','verify-apk.mjs'),output]);

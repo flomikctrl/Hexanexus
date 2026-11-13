@@ -7,6 +7,8 @@ import type {Puzzle} from './state';
 import {cellStyle,cellColors,blockAppearance,removalHighlight,type ProjectionMode} from './presentation';
 import {PointerTapGesture,type Tool} from './interaction';
 import {neighborFromNormal} from './connectivity';
+import {HintOverlay} from './hint-overlay';
+import type {NumberedHint} from './hint-path';
 
 const matrix=(m:Mat)=>new T.Matrix4().makeBasis(new T.Vector3(...m[0]),new T.Vector3(...m[1]),new T.Vector3(...m[2]));
 export class Scene {
@@ -21,6 +23,8 @@ export class Scene {
   tool:Tool='place';remaining=0;editing=false;menu=true;gesture=new PointerTapGesture();
   decoration=new T.Group();directions=new T.Group();
   puzzle:Puzzle|null=null;
+  hints=new HintOverlay();
+  hintViewport=new T.Vector2();
   constructor(public host:HTMLElement){
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;
     this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.65;host.append(this.renderer.domElement);
@@ -32,7 +36,7 @@ export class Scene {
     for(const x of [-4,4]){const l=new T.PointLight(0xffbd54,35,12,2);l.position.set(x,2,-2);this.scene.add(l);}
     // A dim decorative ring has no depth mask and is never an input target.
     const ring=new T.Mesh(new T.TorusGeometry(2.6,.018,6,80),new T.MeshBasicMaterial({color:0x8c7441,transparent:true,opacity:.35,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=-2.36;ring.raycast=()=>{};this.scene.add(ring);
-    this.scene.add(this.group);
+    this.scene.add(this.group,this.hints.group);
     for(let s=0;s<2;s++){
       const panel=new T.Group();panel.position.set(s===0?0:-2.25,0,s===0?-2.25:0);panel.rotation.y=s===0?0:-Math.PI/2;
       const backing=new T.Mesh(new T.BoxGeometry(2.55,2.55,.1),new T.MeshStandardMaterial({color:0x292b22,metalness:.7,roughness:.5}));panel.add(backing);
@@ -57,17 +61,9 @@ export class Scene {
   }
   resize(){const {width,height}=this.host.getBoundingClientRect();this.camera.aspect=width/Math.max(height,1);this.camera.fov=T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(20))*Math.max(1,.95/this.camera.aspect)));this.camera.updateProjectionMatrix();this.renderer.setSize(width,height);}
   resetCamera(){const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6,4.8,7.6);this.controls.update();this.controls.enableDamping=damping;}
-  setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
+  setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;if(this.hints)this.hints.group.visible=!value&&this.hints.count>0;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
   setInteraction(tool:Tool,remaining:number,editing=false){this.clearHover();this.tool=tool;this.remaining=remaining;this.editing=editing;}
-  setHintVisible(visible:boolean){
-    this.clearHover();this.showEmpty=visible;
-    // Change only the empty-cell materials. Keep meshes, camera and puzzle intact.
-    for(const cube of this.objects)if(cube.userData.empty){
-      const allowed=this.editing||!!this.puzzle?.canPlace(cube.userData.cell);
-      (cube.material as T.MeshStandardMaterial).opacity=visible&&allowed?.09:0;
-      cube.children[0].visible=visible&&allowed;
-    }
-  }
+  setHints(steps:NumberedHint[]){this.hints.set(steps,this.puzzle?.cells??[]);this.hints.group.quaternion.copy(this.group.quaternion);this.hints.group.visible=!this.menu&&steps.length>0;}
   clearHover(){if(this.hover){const material=this.hover.material as T.MeshStandardMaterial;material.emissiveIntensity=this.hover.userData.emission;material.emissive.setHex(this.hover.userData.emissive);if(this.hover.userData.empty){const visible=this.showEmpty&&(this.editing||!!this.puzzle?.canPlace(this.hover.userData.cell));material.opacity=visible?.09:0;this.hover.children[0].visible=visible;}this.hover=null;}}
   preview(cell:Vec|null){
     this.clearHover();if(!cell||this.busy||this.menu)return;
@@ -151,6 +147,8 @@ export class Scene {
     for(const cube of this.fading)cube.scale.setScalar(Math.max(.001,1-effect));
     if(effect===1){for(const cube of this.fading){this.scene.remove(cube);this.disposeCube(cube);}this.fading=[];}
     if(!this.reduced){this.sparks.rotation.y+=.0003;if(this.menu)this.decoration.rotation.y+=.002;}
+    this.hints.group.quaternion.copy(this.group.quaternion);
+    this.renderer.getSize(this.hintViewport);this.hints.layout(this.camera,this.hintViewport.x,this.hintViewport.y);
     this.renderer.render(this.scene,this.camera);
   };
 }

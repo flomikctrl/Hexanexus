@@ -3,5 +3,12 @@
   "appName": "Гексанексус",
   "webDir": "dist",
   "android": {"backgroundColor":"#142e33","allowMixedContent":false},
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling":"native",
+      "initialViewportFitValueHint":"contain",
+      "style":"DARK"
+    }
+  },
   "loggingBehavior":"debug"
 }

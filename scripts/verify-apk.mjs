@@ -16,6 +16,8 @@ for(const file of ['AndroidManifest.xml','classes.dex','assets/public/index.html
 const js=files.filter(n=>n.startsWith('assets/public/assets/')&&n.endsWith('.js'));if(js.length<2)throw Error('Не найдены игровые JS-бандлы.');
 const inspect=join(root,'.tools','apk-inspection');mkdirSync(inspect,{recursive:true});run(join(java,'bin',exe('jar')),['xf',apk,'assets/capacitor.config.json','assets/public/audio/silhouette-loop.wav',...spriteFiles,...js],inspect);
 const config=JSON.parse(readFileSync(join(inspect,'assets/capacitor.config.json'),'utf8'));if(config.appId!=='com.hexanexus.puzzle'||config.server?.url)throw Error('Некорректная production-конфигурация.');
+const nativeSafeArea=config.plugins?.SystemBars?.insetsHandling==='native';
+if(nativeSafeArea&&config.plugins.SystemBars.initialViewportFitValueHint!=='contain')throw Error('Native safe-area viewport hint is inconsistent');
 const code=js.map(n=>readFileSync(join(inspect,n),'utf8')).join('\n');
 if(!js.some(file=>file.includes('hint-worker'))||!code.includes('Все шаги решения показаны!')||code.includes('setHintVisible'))throw Error('Step hints or offline solver worker missing; legacy toggle must be absent');
 const levelNames=[...readFileSync('src/levels.ts','utf8').matchAll(/make\('([^']+)'/g)].map(m=>m[1]);
@@ -57,6 +59,18 @@ for(const [packaged,source]of iconPairs){if(!readFileSync(join(inspect,packaged)
 const manifestTree=run(join(tools,exe('aapt')),['dump','xmltree',apk,'AndroidManifest.xml']);
 const publicRelease=/Hexanexus-v[\d.]+\.apk$/.test(apk);
 const version=JSON.parse(readFileSync('package.json','utf8')).version;
+if(version==='1.3.0'){
+ const coin='assets/public/icons/hexic.svg';if(!files.includes(coin))throw Error('Гексики: нет иконки шестиугольной монеты');
+ run(join(java,'bin',exe('jar')),['xf',apk,coin],inspect);
+ if(!readFileSync(join(inspect,coin)).equals(readFileSync('public/icons/hexic.svg')))throw Error('Иконка гексиков отличается от исходника');
+ for(const text of ['hexanexus.economy.v1','Достижения','Легенда мастерской','Повелитель кубиков','гексиков','lobby-stage','currency-help','Мастерская Моти','Один подарок — один новый наряд!','gift-result','Коллекция собрана!','Новый наряд! Мотя в восторге!','getRandomValues'])if(!code.includes(text))throw Error('Economy/lobby/gifts asset/code missing: '+text);
+ if(code.includes('Скоро в игре!')||code.includes('Будущие подарки Моти:'))throw Error('Old gift placeholder remains in APK');
+ console.log('Verified гексики: offline wallet, achievements, hint fees and original hexagonal coin SVG.');
+ const pluginsFile='assets/capacitor.plugins.json';if(!files.includes(pluginsFile))throw Error('Missing native Capacitor App registration');
+ run(join(java,'bin',exe('jar')),['xf',apk,pluginsFile],inspect);
+ const plugins=JSON.parse(readFileSync(join(inspect,pluginsFile),'utf8'));
+ if(!plugins.some(p=>p.pkg==='@capacitor/app'&&p.classpath==='com.capacitorjs.plugins.app.AppPlugin')||!code.includes('Нажмите ещё раз для выхода'))throw Error('Native Back/exit integration missing');
+}
 const versionCode=readFileSync('android/app/build.gradle','utf8').match(/versionCode (\d+)/)?.[1];
 if(!badging.includes(`versionName='${version}'`)||!badging.includes(`versionCode='${versionCode}'`))throw Error('Wrong APK version');
 if(!code.includes('hexanexus.arcade.session.v1')||!code.includes('hexanexus.arcade.records.v1')||!code.includes('Бесконечная мастерская'))throw Error('Endless mode missing from bundle');
@@ -78,6 +92,7 @@ for(const name of ['ic_launcher','ic_launcher_round']){
  }
 }
 if(!readFileSync(join(inspect,'assets/public/index.html'),'utf8').includes('href="/icons/favicon.ico"'))throw Error('Favicon not linked');
+if(nativeSafeArea&&!readFileSync(join(inspect,'assets/public/index.html'),'utf8').includes('viewport-fit=contain'))throw Error('Safe-area native container requires viewport-fit=contain');
 console.log('Verified Motya launcher: 10 legacy/round PNGs, 2 adaptive layers and XMLs, 9 web icon files; manifest references confirmed.');
 mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/app-icons-verification.json',JSON.stringify({apk,legacyAndRoundIcons:10,adaptiveLayers:2,adaptiveXmls:2,webIconFiles:9,manifestReferencesVerified:true,packagedIconsMatchSources:true,packagedFiles:iconPairs.map(([file])=>file)},null,2));
 const signature=run(join(java,'bin',exe('java')),['-jar',join(tools,'lib','apksigner.jar'),'verify','--verbose','--print-certs',apk]);if(!signature.includes('Verified using'))throw Error('Подпись не подтверждена.');

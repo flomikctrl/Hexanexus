@@ -14,7 +14,7 @@ export interface ArcadeSave {
  history:ArcadeHistory[];recordAnnounced:boolean;
 }
 export interface ArcadeRecords {version:1;bestRound:number;bestScore:number;bestStreak:number;games:number;counted:string[]}
-export type ArcadeEvent={type:'correct'|'mistake'|'timeout'|'end'|'record';round:number;score:number;streak:number};
+export type ArcadeEvent={type:'correct'|'mistake'|'timeout'|'end'|'record';id:string;round:number;score:number;streak:number};
 export type ArcadeResult='correct'|'mistake'|'invalid'|'blocked'|'timeout'|'end';
 const freshRecords=():ArcadeRecords=>({version:1,bestRound:0,bestScore:0,bestStreak:0,games:0,counted:[]});
 const integer=(n:unknown,min:number,max=1e12):n is number=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=min&&n<=max;
@@ -55,7 +55,7 @@ export class ArcadeSession {
   const s=new ArcadeSession({version:1,id:globalThis.crypto?.randomUUID?.()??`${Date.now()}-${seed}-${Math.random()}`,rng:rng.rng,...board,targets,round:1,lives:3,remainingMs:roundLimit(1),score:0,streak:0,bestStreak:0,paused:true,finished:false,history,recordAnnounced:false},storage,now,emit);s.persist();return s;
  }
  static restore(storage?:ArcadeStorage,now?:()=>number,emit?:(e:ArcadeEvent)=>void){const data=readArcadeSave(storage);return data?new ArcadeSession(data,storage,now,emit):null;}
- private event(type:ArcadeEvent['type']){this.emit({type,round:this.state.round,score:this.state.score,streak:this.state.streak});}
+ private event(type:ArcadeEvent['type']){this.emit({type,id:this.state.id,round:this.state.round,score:this.state.score,streak:this.state.streak});}
  private write(key:string,value:unknown){if(!this.storage){this.saveFailed=true;return;}try{this.storage.setItem(key,JSON.stringify(value));}catch{this.saveFailed=true;}}
  persist(){this.state.placed=structuredClone(this.puzzle.placed);this.write(arcadeSaveKey,this.state);}
  private updateRecords(){
@@ -85,8 +85,10 @@ export class ArcadeSession {
   s.score+=100+Math.floor(s.remainingMs/1000/3)+Math.min(10,s.streak-1)*5;s.round++;
   s.history=[...s.history.slice(-19),{shape:shapeKey(this.puzzle.cells),signature:projectionKey(this.puzzle.projections)}];
   s.targets=chooseTask(s.fixed,this.puzzle.placed,s.history,s);this.puzzle.level.targets=s.targets;this.puzzle.history=[];
-  s.remainingMs=roundLimit(s.round);this.last=this.now();this.event('correct');
-  if(!s.recordAnnounced&&s.score>this.initialBest){s.recordAnnounced=true;this.event('record');}
-  this.updateRecords();this.persist();return 'correct';
+  s.remainingMs=roundLimit(s.round);this.last=this.now();
+  const record=!s.recordAnnounced&&s.score>this.initialBest;if(record)s.recordAnnounced=true;
+  // Persist the completed round before emitting its reward. Startup can recover
+  // a crash between this write and the economy transaction using id + round.
+  this.updateRecords();this.persist();this.event('correct');if(record)this.event('record');return 'correct';
  }
 }

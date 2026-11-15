@@ -8,7 +8,7 @@ describe('Эксклюзивная награда реальной кампан�
   it('остаётся только наградой кампании, седьмым и изначально закрытым костюмом',()=>{
     expect(motyaSkins).toHaveLength(7);const royal=motyaSkins.find(s=>s.id==='royal')!;
     expect(royal).toMatchObject({name:'Королева Мотя',rarity:'exclusive',initiallyUnlocked:false,acquisition:'campaign-30',canDropFromGifts:false,canPurchase:false});
-    expect(motyaCollection('classic').ownedSkinIds).not.toContain('royal');expect(motyaCollection('classic',true).ownedSkinIds).toHaveLength(7);
+    expect(motyaCollection('classic').ownedSkinIds).not.toContain('royal');expect(motyaCollection('classic',true).ownedSkinIds).toEqual(['classic','royal']);
   });
   it.each([0,1,10,29])('не выдаётся за %s пройденных уровней',count=>{
     const rewards=new CampaignRewards(memory(),royalCampaignNames.slice(0,count));expect(rewards.royalUnlocked).toBe(false);
@@ -42,7 +42,7 @@ describe('Эксклюзивная награда реальной кампан�
     const restarted=new CampaignRewards(storage,[]);expect(restarted.royalUnlocked).toBe(true);expect(restarted.recordCampaignCompletion(royalCampaignNames)).toBe(false);
   });
   it('не надевает royal без права и сохраняет выбор в прежнем ключе после получения',()=>{
-    const storage=memory({[skinStorageKey]:'wizard'});expect(saveMotyaSkin(storage,'royal')).toBe(false);expect(readMotyaSkin(storage)).toBe('wizard');
+    const storage=memory({[skinStorageKey]:'wizard'});expect(saveMotyaSkin(storage,'royal')).toBe(false);expect(readMotyaSkin(storage,false,['wizard'])).toBe('wizard');
     storage.setItem(skinStorageKey,'royal');expect(readMotyaSkin(storage)).toBe('classic');expect(motyaCollection('royal').equippedSkinId).toBe('classic');
     expect(saveMotyaSkin(storage,'royal',true)).toBe(true);expect(readMotyaSkin(storage,true)).toBe('royal');
   });

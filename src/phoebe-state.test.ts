@@ -3,6 +3,9 @@ import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {PhoebeController,readPhoebeSetting,savePhoebeSetting,phoebeSettingKey,friendlyLines} from './phoebe-state';
 describe('Независимые реакции Фиби',()=>{
   beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(10000);});afterEach(()=>vi.useRealTimers());
+  it('Мотя поздравляет с достижением и возвращается в обычное состояние',()=>{
+    const p=new PhoebeController();expect(p.notify({type:'achievement',name:'Первые успехи'})).toBe(true);expect(p.state.message).toContain('Первые успехи');expect(p.state.animation).toBe('victory');expect(p.state.emotion).toBe('IDLE');expect(p.notify({type:'achievement',name:'Первые успехи'})).toBe(false);vi.advanceTimersByTime(4200);expect(p.state.emotion).toBe('IDLE');expect(p.state.animation).toBe('idle');p.dispose();expect(vi.getTimerCount()).toBe(0);
+  });
   it('аркада: ошибка показывает SHOCK и успех не сбрасывает её раньше времени',()=>{
     const p=new PhoebeController();p.notify({type:'arcade',reaction:'start'});p.notify({type:'arcade',reaction:'error'});expect(p.state.emotion).toBe('SHOCK');expect(p.notify({type:'arcade',reaction:'success'})).toBe(false);vi.advanceTimersByTime(2599);expect(p.state.emotion).toBe('SHOCK');vi.advanceTimersByTime(1);expect(p.state.emotion).toBe('IDLE');expect(vi.getTimerCount()).toBe(0);
   });

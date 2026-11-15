@@ -1,0 +1,24 @@
+import {describe,it,expect} from 'vitest';
+import {LobbyRotation,lobbyMotion} from './lobby-rotation';
+const flick=(duration=100,dx=100)=>{const r=new LobbyRotation();r.setActive(true,0);r.begin(1,0,0,0);r.move(1,dx,40,duration);r.end(1,duration);r.step(duration);return r;};
+const advance=(r:LobbyRotation,start:number,duration:number,fps=60)=>{for(let t=start+1000/fps;t<=start+duration+.001;t+=1000/fps)r.step(t);};
+describe('horizontal inertial lobby',()=>{
+ it('starts inactive and never rotates while hidden',()=>{const r=new LobbyRotation(),y=r.yaw;r.step(0);r.step(10000);expect(r.yaw).toBe(y);});
+ it('only changes yaw, never pitch, on a horizontal drag',()=>{const r=new LobbyRotation();r.setActive(true,0);r.begin(1,0,0,0);r.move(1,100,500,100);expect(r.yaw).toBeCloseTo(-.25+.8);expect(r.pitch).toBe(0);});
+ it('ignores vertical swipes',()=>{const r=flick(100,0),y=r.yaw;advance(r,100,500);expect(r.yaw).toBe(y);expect(r.velocity).toBe(0);expect(r.pitch).toBe(0);});
+ it('a fast swipe creates stronger inertia than a slow swipe of the same distance',()=>{expect(Math.abs(flick(100).velocity)).toBeGreaterThan(Math.abs(flick(1000).velocity));});
+ it('continues after release, smoothly decays and reaches rest within three seconds',()=>{const r=flick(),y=r.yaw,v=r.velocity;advance(r,100,100);expect(r.yaw).toBeGreaterThan(y);expect(r.velocity).toBeLessThan(v);expect(r.velocity).toBeGreaterThan(0);advance(r,200,2300);expect(r.velocity).toBe(0);});
+ it('caps swipe speed',()=>{expect(Math.abs(flick(1,10000).velocity)).toBeLessThanOrEqual(lobbyMotion.maxSpeed);});
+ it('holding the finger before release removes stale momentum',()=>{const r=flick();r.begin(2,0,0,1000);r.move(2,100,0,1100);r.end(2,1500);expect(r.velocity).toBe(0);});
+ it('does not apply inertia or auto motion while dragging',()=>{const r=new LobbyRotation();r.setActive(true,0);r.begin(1,0,0,0);r.move(1,100,0,100);const y=r.yaw;advance(r,100,2000);expect(r.yaw).toBe(y);});
+ it('preserves the negative swipe direction when auto rotation resumes',()=>{const r=flick(100,-100);advance(r,100,3000);const y=r.yaw;advance(r,3100,1000);expect(r.yaw).toBeLessThan(y);expect(r.pitch).toBe(0);});
+ it('waits after inertia before smoothly restoring auto motion',()=>{const r=flick();advance(r,100,2100);const y=r.yaw;advance(r,2200,400);expect(r.yaw).toBeCloseTo(y,6);advance(r,2600,1600);expect(r.yaw).toBeGreaterThan(y);});
+ it.each([30,60,120])('matches analytic decay at %i FPS',fps=>{const r=flick(),v=r.velocity,y=r.yaw;advance(r,100,1000,fps);expect(r.velocity).toBeCloseTo(v*Math.exp(-3),6);expect(r.yaw-y).toBeCloseTo(v*(1-Math.exp(-3))/3,6);});
+ it('ignores other fingers',()=>{const r=flick();r.begin(1,0,0,1000);expect(r.begin(2,0,0,1000)).toBe(false);const y=r.yaw;r.move(2,300,0,1010);r.end(2,1020);expect(r.yaw).toBe(y);expect(r.dragging).toBe(true);});
+ it('pointer cancellation stops all motion',()=>{const r=flick();r.cancel(100);const y=r.yaw;advance(r,100,500);expect(r.yaw).toBe(y);expect(r.velocity).toBe(0);expect(r.dragging).toBe(false);});
+ it('focus loss/background suspends the spinner and clears velocity',()=>{const r=flick();r.suspend(true,100);const y=r.yaw;advance(r,100,10000);expect(r.yaw).toBe(y);expect(r.velocity).toBe(0);r.suspend(false,10100);r.step(10100);advance(r,10100,400);expect(r.yaw).toBe(y);});
+ it('keeps yaw when leaving and reentering, without retaining a flick',()=>{const r=flick(),y=r.yaw;r.setActive(false,100);r.setActive(true,10000);r.step(10000);expect(r.yaw).toBe(y);expect(r.velocity).toBe(0);});
+ it('layout-only active calls do not restart the controller',()=>{const r=new LobbyRotation();r.setActive(true,0);r.step(0);r.setActive(true,1200);advance(r,1200,1000);expect(r.yaw).toBeGreaterThan(-.25);});
+ it('reduced motion retains manual yaw but disables coast and auto',()=>{const r=flick(),y=r.yaw;advance(r,100,100);const current=r.yaw;r.step(1000,true);r.step(3000,true);expect(r.yaw).toBe(current);expect(r.velocity).toBe(0);expect(y).not.toBe(-.25);});
+ it('a new contact stops existing inertia immediately',()=>{const r=flick();r.begin(2,0,0,120);expect(r.velocity).toBe(0);expect(r.dragging).toBe(true);});
+});

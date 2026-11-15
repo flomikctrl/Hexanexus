@@ -16,6 +16,13 @@ import type {MotyaSkinId} from './motya-skins';
 import {ArcadeUI} from './arcade-ui';
 import './menu.css';
 import {CampaignHints} from './campaign-hints';
+import {Economy} from './economy';
+import {economySources} from './economy-sources';
+import {EconomyUI} from './economy-ui';
+import {Lobby} from './lobby';
+import {BackNavigation,AndroidBackBinding} from './back-navigation';
+import {App} from '@capacitor/app';
+import {Capacitor} from '@capacitor/core';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 <main id="home" class="screen"><div class="home-copy"><span class="eyebrow">ПРОСТРАНСТВЕННАЯ ГОЛОВОЛОМКА</span><h1>Гексанексус</h1><p class="subtitle">Мастерская силуэтов</p><div class="gold-rule"></div><p class="intro">Одна конструкция. Два силуэта.<br>Найдите форму, которая объединит их.</p><div class="home-actions"><button id="play" class="primary">Кампания <span aria-hidden="true">→</span></button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Гардероб</button><button id="open-settings">Настройки</button></div><small id="progress-summary"></small></div><div class="home-signature"><span id="home-version"></span><span class="home-motto">✦ &nbsp; ФОРМА · СВЕТ · РАВНОВЕСИЕ</span></div></main>
@@ -54,36 +61,43 @@ music.mount(el('pause'));
 let progress:Progress=emptyProgress();try{progress=readProgress(localStorage,levels.length);}catch{}
 let rewardStorage:Storage|undefined;try{rewardStorage=localStorage;}catch{}
 const rewards=new CampaignRewards(rewardStorage,progress.completed);
+const economy=new Economy(rewardStorage,economySources(rewardStorage));
 let index=progress.current,puzzle=new Puzzle(levels[index]),draft:Level=structuredClone(levels[index]);
 let selectedGroup=Math.floor(index/5);
 el('level-cards').insertAdjacentHTML('beforebegin','<nav id="level-groups" aria-label="Группы уровней"></nav><h3 id="level-group-name"></h3>');
 if(progress.resume?.level===puzzle.level.name){for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];}
-let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'='home';
+let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'|'achievements'='home';
 let tool:Tool='place',projectionMode:ProjectionMode='normal',winShown=false;
 const view=new Scene(el('world'));
-const motya=new MotyaAssistant(skin=>skin!=='royal'||rewards.royalUnlocked);
-const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'));
+const motya=new MotyaAssistant(skin=>skin==='classic'||(skin==='royal'?rewards.royalUnlocked:economy.ready&&economy.gifts.owned.includes(skin)),economy.ready);
+const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'),economy);
 let arcade:ArcadeUI|undefined;
-const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!editing&&!arcade?.active,message);
-arcade=new ArcadeUI(view,motya,()=>showScreen('game'),()=>showScreen('home'),message);
+new EconomyUI(economy,motya,()=>showScreen('achievements'),()=>showScreen('home'));
+const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!custom&&!editing&&!arcade?.active,message,economy);
+arcade=new ArcadeUI(view,motya,()=>showScreen('game'),()=>showScreen('home'),message,economy);
+const lobby=new Lobby(view);
 let editor:DevEditor|undefined;
 function save(){try{writeProgress(localStorage,progress);}catch{}}
 let toastTimer:ReturnType<typeof setTimeout>|undefined;
+let backNavigation:BackNavigation|undefined;
 function message(text:string){
   clearTimeout(toastTimer);el('toast').textContent=text;
   toastTimer=setTimeout(()=>{el('toast').textContent='';},3200);
 }
 function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
+  backNavigation?.reset();
   if(next!=='game')arcade?.leave();
   if(next==='editor'&&!import.meta.env.DEV)return;
   if(next!=='wardrobe')wardrobe.close();
   if(editing&&next!=='editor'){editing=false;puzzle=savedPuzzle;}
   screen=next;document.body.dataset.screen=next;
+  el('achievements-screen').hidden=next!=='achievements';
   el('home').hidden=next!=='home';el('level-screen').hidden=next!=='levels';el('game-screen').hidden=next!=='game'&&next!=='editor';editor?.setVisible(next==='editor');
   document.body.classList.toggle('editing',next==='editor');view.setMenu(next!=='game'&&next!=='editor');
+  lobby.setVisible(next==='home');
   motya.setScreen(next);if(next==='wardrobe')wardrobe.open(previewSkin);
   if(next==='home'||next==='levels'||next==='wardrobe'){view.directions.visible=false;}
-  if(next==='home')el('progress-summary').textContent=`Пройдено ${levels.filter(l=>progress.completed.includes(l.name)).length} из ${levels.length} испытаний`;
+  if(next==='home')el('progress-summary').textContent=`Кампания: ${levels.filter(l=>progress.completed.includes(l.name)).length} / ${levels.length}`;
   if(next==='levels'){selectedGroup=Math.floor(index/5);drawCards();}draw();
 }
 function startGame(){arcade?.leave();motya.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
@@ -95,6 +109,7 @@ function checkWin(){
   campaignHints.clear();
   if(winShown)return;
   winShown=true;if(!custom&&!progress.completed.includes(levels[index].name)){progress.completed.push(levels[index].name);save();}
+  if(!custom)economy.syncCampaign(progress.completed);
   const royalJustUnlocked=!custom&&rewards.recordCampaignCompletion(progress.completed);
   el('royal-reward').hidden=!royalJustUnlocked;
   closeDialog('tutorial');
@@ -106,6 +121,7 @@ function checkWin(){
 }
 function draw(){
   if(arcade?.active){campaignHints.clear();arcade.draw();return;}
+  if(screen!=='game'&&screen!=='editor'){campaignHints.refresh();return;}
   if(editing)campaignHints.clear();
   view.setInteraction(tool,puzzle.level.limit-puzzle.placed.length,editing);
   view.sync(puzzle,false,false,editing?'normal':projectionMode);
@@ -176,14 +192,35 @@ function drawCards(){
   levels.forEach((l,i)=>{if(Math.floor(i/5)!==selectedGroup)return;const card=document.createElement('button');card.className='level-card';card.dataset.level=String(i);const unlocked=isLevelUnlocked(i,levels.map(l=>l.name),progress.completed,progress.current);card.disabled=!unlocked;card.classList.toggle('locked',!unlocked);const n=document.createElement('span');n.className='card-number';n.textContent=String(i+1).padStart(2,'0');const name=document.createElement('h3');name.textContent=l.name.split(' · ')[1]||l.name;const detail=document.createElement('p');detail.textContent=`${['Знакомство с формой','Глубина и пересечения','Пространственный вызов','Два направления','Взгляд с обратной стороны','Переплетённые пути','Каждый блок на счету','Несколько верных решений','Последовательность граней','Финальное испытание'][i]??levelGroups[Math.floor(i/5)]??'Новое испытание'} · ${l.limit} кубика`;const state=document.createElement('small');state.textContent=progress.completed.includes(l.name)?'✓ Пройдено':unlocked?'Начать испытание →':'Сначала пройдите предыдущее испытание';card.classList.toggle('completed',progress.completed.includes(l.name));card.append(n,name,detail,state);card.onclick=()=>loadLevel(i);cards.append(card);});
 }
 function closeDialog(id:string){el<HTMLDialogElement>(id).close();}
-function openSettings(){motya.setScreen('settings');view.controls.enabled=false;el<HTMLDialogElement>('settings').showModal();}
+let settingsFromPause=false;
+function openSettings(fromPause=false){settingsFromPause=fromPause;motya.setScreen('settings');view.controls.enabled=false;el<HTMLDialogElement>('settings').showModal();}
 function openPause(){if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
 el<HTMLDialogElement>('pause').addEventListener('close',()=>{view.controls.enabled=screen==='game'||screen==='editor';});
 el('open-wardrobe').onclick=()=>showScreen('wardrobe');
-el('open-settings').onclick=openSettings;el('settings-close').onclick=()=>closeDialog('settings');
-el<HTMLDialogElement>('settings').addEventListener('close',()=>{motya.setScreen(screen);view.controls.enabled=screen==='game'||screen==='editor';});
-el('pause-settings').onclick=()=>{closeDialog('pause');openSettings();};
+el('open-settings').onclick=()=>openSettings();el('settings-close').onclick=()=>closeDialog('settings');
+el<HTMLDialogElement>('settings').addEventListener('close',()=>{motya.setScreen(screen);view.controls.enabled=screen==='game'||screen==='editor';if(settingsFromPause&&screen==='game'){settingsFromPause=false;openPause();}});
+el('pause-settings').onclick=()=>{closeDialog('pause');openSettings(true);};
 el('play').onclick=startGame;el('choose-level').onclick=()=>showScreen('levels');el('levels-back').onclick=()=>showScreen('home');el('menu').onclick=openPause;
+backNavigation=new BackNavigation({
+ closeModal:()=>{
+  if(wardrobe.closeGiftResult())return true;
+  const dialog=Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]')).filter(d=>d.id!=='lobby-menu').at(-1);if(!dialog)return false;
+  if(dialog.id==='arcade-pause')arcade?.resume();
+  else if(dialog.id==='arcade-results')el('arcade-result-home').click();
+  else dialog.close();return true;
+ },
+ closeMenu:()=>lobby.back(),screen:()=>screen,home:()=>showScreen('home'),
+ pause:()=>{if(arcade?.active)arcade.pause(true);else openPause();},
+ hintExit:()=>lobby.hintExit(),exit:()=>{if(Capacitor.getPlatform()==='android')void App.exitApp();}
+});
+Object.assign(window,{hexanexusHandleBack:()=>backNavigation!.handle()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&backNavigation!.handle(false))event.preventDefault();});
+let androidBinding:AndroidBackBinding|undefined;
+if(Capacitor.getPlatform()==='android'){
+ androidBinding=new AndroidBackBinding({back:fn=>App.addListener('backButton',fn),pause:fn=>App.addListener('pause',fn),resume:fn=>App.addListener('resume',fn)},backNavigation,active=>{view.setAppActive(active);if(!active){arcade?.pause(true);wardrobe.finishGiftAnimation();}});
+ void androidBinding.start();
+}
+if(import.meta.hot)import.meta.hot.dispose(()=>{void androidBinding?.dispose();wardrobe.dispose();view.dispose();});
 el('resume').onclick=()=>closeDialog('pause');el('pause-home').onclick=()=>{closeDialog('pause');showScreen('home');};el('pause-levels').onclick=()=>{closeDialog('pause');showScreen('levels');};
 el('camera-reset').onclick=()=>{view.resetCamera();closeDialog('pause');message('Ракурс восстановлен. Форма осталась на месте.');};
 el('initial-view').onclick=()=>{view.resetCamera();message('Начальный ракурс восстановлен.');};

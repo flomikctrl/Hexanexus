@@ -1,7 +1,7 @@
 import './motya.css';
 import {PhoebeController,readPhoebeSetting,savePhoebeSetting,type PhoebeEvent,type PhoebeState} from './phoebe-state';
 import {PhoebeSpriteSwitcher,type PhoebeSprite} from './phoebe-sprite';
-import {readMotyaSkin,saveMotyaSkin,skinSprite,type MotyaSkinId,type MotyaEmotion} from './motya-skins';
+import {readMotyaSkin,saveMotyaSkin,skinSprite,skinIds,skinStorageKey,type MotyaSkinId,type MotyaEmotion} from './motya-skins';
 
 type SpriteSet=Map<MotyaEmotion,PhoebeSprite>;
 type ManagedRoot=HTMLElement&{disposeMotya?:()=>void;disposePhoebe?:()=>void};
@@ -24,10 +24,11 @@ export class MotyaAssistant {
   private activeSkin:MotyaSkinId='classic';
   private preview:{skin:MotyaSkinId;emotion:MotyaEmotion}|null=null;
   get skin(){return this.activeSkin;}
-  constructor(private canWear:(skin:MotyaSkinId)=>boolean=skin=>skin!=='royal'){
+  constructor(private canWear:(skin:MotyaSkinId)=>boolean=skin=>skin==='classic',persistMigration=true){
     document.querySelectorAll<ManagedRoot>('#motya,#phoebe').forEach(root=>{root.disposeMotya?.();root.disposePhoebe?.();root.remove();});
     document.querySelectorAll('.motya-setting,#motya-asset-warning').forEach(node=>node.remove());
-    try{this.activeSkin=readMotyaSkin(localStorage,this.canWear('royal'));}catch{}
+    try{this.activeSkin=readMotyaSkin(localStorage,this.canWear('royal'),skinIds.filter(this.canWear));
+      if(persistMigration&&localStorage.getItem(skinStorageKey)!==this.activeSkin)saveMotyaSkin(localStorage,this.activeSkin,this.canWear('royal'),skinIds.filter(this.canWear));}catch{}
     this.root.id='motya';this.root.className='motya';this.root.setAttribute('aria-label','Мотя — плюшевая помощница');this.root.hidden=true;
     this.bubble.className='motya-speech';this.bubble.setAttribute('role','status');this.bubble.setAttribute('aria-live','polite');this.bubble.hidden=true;
     this.button.type='button';this.button.className='motya-character';this.button.title='Поговорить с Мотей';this.button.setAttribute('aria-label','Поговорить с Мотей');
@@ -66,7 +67,8 @@ export class MotyaAssistant {
   }
   wearSkin(skin:MotyaSkinId){
     if(!this.canWear(skin))return false;
-    this.activeSkin=skin;let saved=false;try{saved=saveMotyaSkin(localStorage,skin,this.canWear('royal'));}catch{}
+    let saved=false;try{saved=saveMotyaSkin(localStorage,skin,this.canWear('royal'),skinIds.filter(this.canWear));}catch{}
+    if(saved)this.activeSkin=skin;
     this.render(this.controller.state);return saved;
   }
   isSkinUnlocked(skin:MotyaSkinId){return this.canWear(skin);}

@@ -3,6 +3,7 @@ export {friendlyLines} from './phoebe-lines';
 export type PhoebeEmotion='IDLE'|'SAD'|'SHOCK';
 export type PhoebeAnimation='idle'|'sad'|'shock'|'tap'|'victory'|'final-victory';
 export type PhoebeEvent=
+  |{type:'achievement';name:string}
   |{type:'arcade';reaction:'start'|'success'|'error'|'record'|'end'}
   |{type:'greeting'|'level-win'|'manual'}
   |{type:'level-start';levelIndex?:number;levelCount?:number}
@@ -39,6 +40,7 @@ export class PhoebeController {
     if(event.type==='diagnostics'&&!event.hasErrors)return false;
     let emotion:PhoebeEmotion='IDLE',animation:PhoebeAnimation='idle',message='',pool:string[]=[],priority=10,duration=4800;
     switch(event.type){
+      case 'achievement':pool=[`Ура! «${event.name}» — наше достижение!`];animation='victory';priority=40;duration=3600;break;
       case 'arcade':{
         const lines={start:['Посмотрим, сколько продержимся!','Я буду считать кубики!','Новая мастерская начинается!'],success:['Есть! Ещё один!','Красиво получилось!','Продолжаем!'],error:['Ой! Минус сердечко…','Осторожнее с кубиками!','Ничего, попробуй ещё!'],record:['УРА! Новый рекорд!','Мы стали ещё лучше!','Я так тобой горжусь!'],end:['Мы хорошо постарались!','В следующий раз получится ещё лучше!']};
         pool=lines[event.reaction];duration=2600;

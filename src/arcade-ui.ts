@@ -4,6 +4,7 @@ import type {Scene} from './scene';
 import type {MotyaAssistant} from './motya';
 import type {Tool} from './interaction';
 import type {Vec} from './math';
+import type {Economy} from './economy';
 
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 export class ArcadeUI {
@@ -12,7 +13,8 @@ export class ArcadeUI {
  private storage:ArcadeStorage|undefined;
  private tool:Tool='place';
  private lastSave=0;
- constructor(private view:Scene,private motya:MotyaAssistant,private enter:()=>void,private home:()=>void,private message:(text:string)=>void){
+ private rewarded=false;
+ constructor(private view:Scene,private motya:MotyaAssistant,private enter:()=>void,private home:()=>void,private message:(text:string)=>void,private economy?:Economy){
   try{this.storage=localStorage;}catch{}
   this.session=ArcadeSession.restore(this.storage,undefined,event=>this.reaction(event));
   el('play').insertAdjacentHTML('afterend','<button id="open-arcade">∞ Бесконечная мастерская</button>');
@@ -24,7 +26,7 @@ export class ArcadeUI {
   el('arcade-entry-home').onclick=()=>el<HTMLDialogElement>('arcade-entry').close();
   el('arcade-start').onclick=()=>{el<HTMLDialogElement>('arcade-entry').close();this.start(true);};
   el('arcade-continue').onclick=()=>{el<HTMLDialogElement>('arcade-entry').close();this.start(false);};
-  el('arcade-resume').onclick=()=>{el<HTMLDialogElement>('arcade-pause').close();this.session?.resume();this.view.controls.enabled=true;this.view.gesture.cancel();this.drawHud();};
+  el('arcade-resume').onclick=()=>this.resume();
   el('arcade-view').onclick=()=>this.view.resetCamera();
   for(const id of ['arcade-pause-home','arcade-result-home'])el(id).onclick=()=>{this.closeDialogs();this.leave();this.home();};
   el('arcade-replay').onclick=()=>{this.closeDialogs();this.start(true);};
@@ -57,6 +59,7 @@ export class ArcadeUI {
   if(!this.active)return;this.session?.pause();this.active=false;document.body.classList.remove('arcade-playing');el('arcade-hud').hidden=true;
   this.closeDialogs();this.view.gesture.cancel();
  }
+ resume(){if(!this.active||!this.session||this.session.state.finished)return;el<HTMLDialogElement>('arcade-pause').close();this.session.resume();this.view.controls.enabled=true;this.view.gesture.cancel();this.drawHud();}
  pause(freezeLastTick=false){
   if(!this.active||!this.session||this.session.state.finished)return;
   this.session.pause(!freezeLastTick);this.view.controls.enabled=false;this.view.clearHover();this.view.gesture.cancel();
@@ -73,7 +76,7 @@ export class ArcadeUI {
   if(result!=='blocked'){this.draw();this.drawHud();}
  }
  private handle(result:ArcadeResult){
-  if(result==='correct')this.message('Верно! Новый силуэт — следующий ход.');
+  if(result==='correct')this.message(`Верно! ${this.economy?(this.rewarded?'+5 гексиков. ':this.economy.error+' '):''}Новый силуэт — следующий ход.`);
   if(result==='mistake')this.message('Минус сердечко. Ход отменён; задача прежняя.');
   if(result==='timeout')this.message('Время вышло. Минус сердечко; попробуйте ту же задачу.');
   if(result==='invalid')this.message('Ход запрещён. Жизни сохранены.');
@@ -91,6 +94,7 @@ export class ArcadeUI {
   el('menu').setAttribute('aria-label','Пауза бесконечной мастерской');
  }
  private reaction(event:ArcadeEvent){
+  if(event.type==='correct')this.rewarded=this.economy?.recordArcade(event.id,event.round-1)??false;
   const reaction=event.type==='mistake'||event.type==='timeout'?'error':event.type==='correct'?'success':event.type;
   this.motya.notify({type:'arcade',reaction});
  }

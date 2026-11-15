@@ -6,12 +6,12 @@ import {PhoebeController,readPhoebeSetting} from './phoebe-state';
 import {PhoebeSpriteSwitcher} from './phoebe-sprite';
 
 describe('Мотя: оригинальные образы и безопасное сохранение',()=>{
-  it('содержит шесть бесплатных образов с редкостью и способом получения',()=>{
+  it('содержит стартовый, пять подарочных и эксклюзивный образы',()=>{
     expect(motyaSkins).toHaveLength(7);expect(new Set(motyaSkins.map(s=>s.id)).size).toBe(7);
-    expect(motyaCollection('wizard').ownedSkinIds).toEqual(skinIds.filter(id=>id!=='royal'));
-    expect(motyaSkins.filter(s=>s.initiallyUnlocked)).toHaveLength(6);
+    expect(motyaCollection('wizard').ownedSkinIds).toEqual(['classic']);
+    expect(motyaSkins.filter(s=>s.initiallyUnlocked)).toHaveLength(1);
     expect(motyaSkins.filter(s=>s.initiallyUnlocked).every(s=>s.acquisition==='included')).toBe(true);
-    expect(motyaSkins.filter(s=>s.rarity==='legendary').map(s=>s.id)).toEqual(['wizard','cosmic']);
+    expect(motyaSkins.filter(s=>s.rarity==='legendary').map(s=>s.id)).toEqual(['sleepy','wizard']);
   });
   it('возвращается к classic при первом запуске, неизвестном ID и отказе хранилища',()=>{
     for(const saved of [null,'','missing','../wizard','{"id":"wizard"}'])expect(readMotyaSkin({getItem:()=>saved})).toBe('classic');
@@ -20,7 +20,7 @@ describe('Мотя: оригинальные образы и безопасно�
   it('пишет только отдельный ключ, сохраняя прогресс, музыку и старую настройку помощницы',()=>{
     const data=new Map([['hexanexus.progress.v2','old-progress'],['hexanexus.music','old-music'],['hexanexus.phoebe.enabled','false']]);
     const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>data.set(key,value)};
-    for(const id of skinIds.filter(id=>id!=='royal')){expect(saveMotyaSkin(storage,id)).toBe(true);expect(readMotyaSkin(storage)).toBe(id);}
+    for(const id of skinIds.filter(id=>id!=='royal')){expect(saveMotyaSkin(storage,id,false,skinIds)).toBe(true);expect(readMotyaSkin(storage,false,skinIds)).toBe(id);}
     expect(data.size).toBe(4);expect(data.get(skinStorageKey)).toBe('cosmic');
     expect(data.get('hexanexus.progress.v2')).toBe('old-progress');expect(data.get('hexanexus.music')).toBe('old-music');expect(readPhoebeSetting(storage)).toBe(false);
     expect(saveMotyaSkin({setItem:()=>{throw Error('denied');}},'winter')).toBe(false);

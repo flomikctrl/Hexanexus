@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {allCells, key,type Mat, type Vec} from './math';
+import {gridCells, key,type Mat, type Vec} from './math';
 import {equal} from './projections';
 import type {Puzzle} from './state';
 import {cellStyle,cellColors,blockAppearance,removalHighlight,type ProjectionMode} from './presentation';
@@ -20,6 +20,7 @@ export class Scene {
   objects:T.Mesh[]=[]; target=new T.Quaternion(); hover:T.Mesh|null=null; busy=false; start=0; from=new T.Quaternion();
   onCell:(p:Vec)=>void=()=>{}; onSettled:()=>void=()=>{}; down={x:0,y:0}; destroyed=false;
   geometry=new RoundedBoxGeometry(.91,.91,.91,2,.055); edgeGeometry=new T.EdgesGeometry(new T.BoxGeometry(.93,.93,.93));
+  cornerGeometry=new T.BoxGeometry(.12,.12,.12);
   sparks:T.Points; reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   lastOccupied=new Set<string>(); fading:T.Mesh[]=[]; effectStart=0;
   showEmpty=false;
@@ -71,7 +72,7 @@ export class Scene {
     this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(host);this.resize();this.updateLoop();
   }
   resize(){const {width,height}=this.host.getBoundingClientRect();this.camera.aspect=width/Math.max(height,1);this.camera.fov=T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(20))*Math.max(1,.95/this.camera.aspect)));this.camera.updateProjectionMatrix();this.renderer.getSize(this.hintViewport);if(this.hintViewport.x!==width||this.hintViewport.y!==height)this.renderer.setSize(width,height);}
-  resetCamera(){const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6,4.8,7.6);this.controls.update();this.controls.enableDamping=damping;}
+  resetCamera(){const scale=this.menu?1:(this.puzzle?.size??3)/3;this.controls.minDistance=6*scale;this.controls.maxDistance=13*scale;const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6*scale,4.8*scale,7.6*scale);this.controls.update();this.controls.enableDamping=damping;}
   setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;if(this.hints)this.hints.group.visible=!value&&this.hints.count>0;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.renderer.shadowMap.enabled=!value;const ratio=Math.min(devicePixelRatio,value?1.5:2);if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
   setAppActive(active:boolean){this.appActive=active;this.updateLoop();}
   private updateLoop(){const active=this.appActive&&!document.hidden;this.lobbyRotation.suspend(!active,performance.now());this.lastFrame=0;if(active)this.loop.start();else{this.loop.pause();this.gesture.cancel();this.lobbyRotation.cancel(performance.now());}}
@@ -119,7 +120,7 @@ export class Scene {
   }
   sync(p:Puzzle,animate=false,showEmpty=false,mode:ProjectionMode='training'){
     this.clearHover();
-    this.puzzle=p;
+    const resized=(this.puzzle?.size??3)!==p.size;this.puzzle=p;if(resized&&!this.menu)this.resetCamera();
     this.showEmpty=showEmpty;
     const occupied=new Set(p.cells.map(key));
     for(const old of this.fading){this.scene.remove(old);this.disposeCube(old);}this.fading=[];
@@ -129,7 +130,7 @@ export class Scene {
       }else{this.group.remove(child);this.disposeCube(child);}
     }
     this.objects=[];
-    for(const cell of allCells){
+    for(const cell of gridCells(p.size)){
       const fixed=p.level.fixed.some(v=>key(v)===key(cell));const placed=p.placed.some(v=>key(v)===key(cell));const available=p.level.available.some(v=>key(v)===key(cell));
       if(!fixed&&!placed&&!available)continue;
       const full=fixed||placed;
@@ -139,8 +140,8 @@ export class Scene {
       const edges=new T.LineSegments(this.edgeGeometry,new T.LineBasicMaterial({color:full?appearance.edge:0x98ebc8,transparent:true,opacity:full?.8:.55}));edges.visible=full||showEmpty&&(this.editing||p.canPlace(cell));cube.add(edges);
       if(!full&&!this.editing&&!p.canPlace(cell))material.opacity=0;
       if(full){
-        const cornerGeo=new T.BoxGeometry(.12,.12,.12);const cornerMat=new T.MeshStandardMaterial({color:appearance.corner,metalness:.85,roughness:.25});
-        for(const x of [-.43,.43])for(const y of [-.43,.43])for(const z of [-.43,.43]){const c=new T.Mesh(cornerGeo,cornerMat);c.position.set(x,y,z);cube.add(c);}
+        const cornerMat=new T.MeshStandardMaterial({color:appearance.corner,metalness:.85,roughness:.25}),corners=new T.InstancedMesh(this.cornerGeometry,cornerMat,8),transform=new T.Matrix4();let i=0;
+        for(const x of [-.43,.43])for(const y of [-.43,.43])for(const z of [-.43,.43]){transform.makeTranslation(x,y,z);corners.setMatrixAt(i++,transform);}cube.add(corners);
       }
       this.group.add(cube);this.objects.push(cube);
     }
@@ -150,12 +151,14 @@ export class Scene {
     this.updateProjections(p,mode);
   }
   updateProjections(p:Puzzle,mode:ProjectionMode){
-    const current=p.projections;
+    const current=p.projections,n=p.size,c=(n-1)/2,scale=3/n;
     this.panels.forEach((panel,s)=>{
-      for(let i=0;i<9;i++){
+      if(panel.userData.size!==n){for(const tile of panel.children.slice(2)){panel.remove(tile);this.disposeCube(tile);}panel.userData.size=n;}
+      panel.scale.setScalar(n/3);panel.position.set(s===0?0:-(n/2+.75),0,s===0?-(n/2+.75):0);this.directions.scale.setScalar(n/3);
+      for(let i=0;i<n*n;i++){
         const style=cellStyle(p.level.targets[s][i],current[s][i],mode);const color=cellColors[style];
         let tile=panel.children[i+2] as T.Mesh<T.BoxGeometry,T.MeshBasicMaterial>|undefined;
-        if(!tile){tile=new T.Mesh(new T.BoxGeometry(.67,.67,.08),new T.MeshBasicMaterial({toneMapped:false}));tile.position.set((i%3-1)*.77,(1-Math.floor(i/3))*.77,s===0?.11:-.11);panel.add(tile);}
+        if(!tile){tile=new T.Mesh(new T.BoxGeometry(.67*scale,.67*scale,.08),new T.MeshBasicMaterial({toneMapped:false}));tile.position.set((i%n-c)*.77*scale,(c-Math.floor(i/n))*.77*scale,s===0?.11:-.11);panel.add(tile);}
         tile.userData.style=style;tile.material.color.setHex(color);
       }
       ((panel.children[1] as T.LineSegments).material as T.LineBasicMaterial).color.set(mode==='training'&&equal(current[s],p.level.targets[s])?0x9fffd2:0xffcf71);
@@ -164,7 +167,7 @@ export class Scene {
   }
   disposeCube(child:T.Object3D){
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
-    child.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments){if(o.geometry!==this.geometry&&o.geometry!==this.edgeGeometry)geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});
+    child.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments){if(o.geometry!==this.geometry&&o.geometry!==this.edgeGeometry&&o.geometry!==this.cornerGeometry)geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);if(o instanceof T.InstancedMesh)o.dispose();}});
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
   }
   frame=()=>{
@@ -185,7 +188,7 @@ export class Scene {
     this.hints.set([],[]);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     this.scene.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments||o instanceof T.Points){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);if(o instanceof T.InstancedMesh)o.dispose();}});
-    geometries.add(this.geometry);geometries.add(this.edgeGeometry);this.scene.traverse(o=>{if(o instanceof T.Light)(o as T.DirectionalLight).shadow?.map?.dispose();});
+    geometries.add(this.geometry);geometries.add(this.edgeGeometry);geometries.add(this.cornerGeometry);this.scene.traverse(o=>{if(o instanceof T.Light)(o as T.DirectionalLight).shadow?.map?.dispose();});
     geometries.forEach(g=>g.dispose());materials.forEach(m=>{const map=(m as T.MeshBasicMaterial).map;map?.dispose();m.dispose();});this.renderer.dispose();this.renderer.domElement.remove();
   }
 }

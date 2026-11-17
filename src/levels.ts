@@ -1,6 +1,6 @@
-import {allCells, identity, key, type Mat, type Vec} from './math';
+import {allCells, identity, key,type GridSize, type Mat, type Vec} from './math';
 import {project, type Targets} from './projections';
-export interface Level {name:string; fixed:Vec[]; available:Vec[]; limit:number; targets:Targets; orientation:Mat}
+export interface Level {name:string; fixed:Vec[]; available:Vec[]; limit:number; targets:Targets; orientation:Mat;size?:GridSize}
 export const levelWitnesses:Record<string,Vec[]>={};
 function make(name:string,fixed:Vec[], answer:Vec[]):Level {
   levelWitnesses[name]=structuredClone(answer);

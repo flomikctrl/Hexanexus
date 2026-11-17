@@ -1,10 +1,10 @@
-﻿import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
 import {inflateSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
-const skins=['classic','sleepy','baker','winter','wizard','cosmic','royal'],emotions=['idle','sad','shock'],report=[];
+const skins=['classic','sleepy','baker','winter','wizard','cosmic','royal','architect','flower','pirate','night','archdemon'],emotions=['idle','sad','shock'],report=[];
 for(const skin of skins)for(const emotion of emotions){
  const path=`public/assets/motya/${skin}/${emotion}.png`,png=await readFile(path),width=png.readUInt32BE(16),height=png.readUInt32BE(20);
- if(width!==(skin==='royal'?1254:1024)||height!==width||png[24]!==8||png[25]!==6||png[28]!==0)throw Error('Unexpected PNG format: '+path);
+ if(width!==(skin==='royal'?1254:skin==='architect'?724:skin==='night'?340:1024)||height!==width||png[24]!==8||png[25]!==6||png[28]!==0)throw Error('Unexpected PNG format: '+path);
  const chunks=[];for(let i=8;i<png.length;){const n=png.readUInt32BE(i),kind=png.toString('ascii',i+4,i+8);if(kind==='IDAT')chunks.push(png.subarray(i+8,i+8+n));i+=12+n;}
  const raw=inflateSync(Buffer.concat(chunks)),stride=width*4+1;let prev=new Uint8Array(width),transparent=0,visible=0,minX=width,minY=height,maxX=0,maxY=0;
  for(let y=0;y<height;y++){

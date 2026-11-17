@@ -95,7 +95,7 @@ export class MotyaAssistant {
     if(this.disposed)return;const version=++this.renderVersion;
     const preview=this.preview,skin=preview?.skin??this.activeSkin,emotion=preview?.emotion??state.emotion;
     const animation=preview?'idle':state.animation;
-    this.root.hidden=!preview&&(!state.enabled||this.screen==='editor'||this.screen==='settings'||this.screen==='wardrobe');
+    this.root.hidden=!preview&&(!state.enabled||this.screen==='editor'||this.screen==='settings'||this.screen==='wardrobe'||this.screen==='profile'||this.screen==='campaigns');
     this.root.dataset.skin=skin;this.root.dataset.emotion=emotion;
     this.button.tabIndex=preview?-1:0;this.button.title=preview?'Предпросмотр Моти':'Поговорить с Мотей';this.button.setAttribute('aria-label',this.button.title);
     if(this.root.hidden){this.spriteSwitcher.cancel();this.bubble.hidden=true;return;}
@@ -115,7 +115,7 @@ export class MotyaAssistant {
       this.scheduleLayout();
     }).catch(error=>{
       if(this.disposed||version!==this.renderVersion)return;this.spriteSwitcher.cancel();this.root.dataset.assets='error';
-      const warning=document.getElementById('motya-asset-warning')!;warning.hidden=false;warning.textContent='Не удалось загрузить образ Моти. Выберите другой костюм в гардеробе.';console.warn('Мотя:',error);
+      const warning=document.getElementById('motya-asset-warning')!;warning.hidden=false;warning.textContent='Не удалось загрузить образ Моти. Выберите другой костюм в разделе «Костюмы и подарки».';console.warn('Мотя:',error);
     });
     this.scheduleLayout();
   }

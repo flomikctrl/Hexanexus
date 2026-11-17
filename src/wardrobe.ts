@@ -2,6 +2,7 @@ import {motyaSkins,skinById,rarityLabels,type MotyaSkinId,type MotyaEmotion} fro
 import type {MotyaAssistant} from './motya';
 import type {Economy} from './economy';
 import {MotyaGifts} from './gift-ui';
+import {createSkinCard,skinUnlockCondition} from './skin-card';
 
 export class MotyaWardrobe {
   private selected:MotyaSkinId;
@@ -13,12 +14,15 @@ export class MotyaWardrobe {
   constructor(private motya:MotyaAssistant,onBack:()=>void,economy:Economy){
     this.selected=motya.skin;
     this.host=document.createElement('section');this.host.id='wardrobe';this.host.className='screen collection-screen';this.host.hidden=true;
-    this.host.innerHTML='<div class="collection-heading"><div><small>МАСТЕРСКАЯ СИЛУЭТОВ</small><h2>Гардероб Моти</h2></div><button id="wardrobe-back">← Меню</button></div><div id="wardrobe-stage" aria-label="Предпросмотр костюма"></div><div class="outfit-info"><h3 id="outfit-name"></h3><span id="outfit-rarity" class="rarity"></span><p id="outfit-description"></p></div><div id="wardrobe-emotions" role="group" aria-label="Эмоция в предпросмотре"><button data-emotion="IDLE">Обычная</button><button data-emotion="SAD">Грустная</button><button data-emotion="SHOCK">Удивлённая</button></div><div id="outfit-cards" aria-label="Доступные образы"></div><button id="outfit-wear" class="primary">Надеть</button><p id="wardrobe-status" role="status" aria-live="polite"></p>';
+    this.host.innerHTML='<div class="collection-heading"><div><small>МАСТЕРСКАЯ СИЛУЭТОВ</small><h2>Мастерская Моти</h2></div><button id="wardrobe-back">← Меню</button></div><div id="wardrobe-stage" aria-label="Предпросмотр костюма"></div><div class="outfit-info"><h3 id="outfit-name"></h3><span id="outfit-rarity" class="rarity"></span><p id="outfit-description"></p></div><div id="wardrobe-emotions" role="group" aria-label="Эмоция в предпросмотре"><button data-emotion="IDLE">Обычная</button><button data-emotion="SAD">Грустная</button><button data-emotion="SHOCK">Удивлённая</button></div><div id="outfit-cards" aria-label="Доступные образы"></div><button id="outfit-wear" class="primary">Надеть</button><p id="wardrobe-status" role="status" aria-live="polite"></p>';
     document.getElementById('app')!.append(this.host);
+    const equip=document.createElement('div');equip.className='wardrobe-equip';equip.setAttribute('aria-label','Надеть выбранный костюм');
+    const selection=document.createElement('p');selection.id='outfit-selected';selection.className='wardrobe-equip-selection';
+    equip.append(selection,this.host.querySelector('#outfit-wear')!,this.host.querySelector('#wardrobe-status')!);this.host.append(equip);
     const heading=this.host.firstElementChild!;heading.querySelector('h2')!.textContent='Мастерская Моти';
     const panel=document.createElement('div');panel.id='wardrobe-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','wardrobe-tab');
     while(heading.nextSibling)panel.append(heading.nextSibling);
-    const tabs=document.createElement('div');tabs.id='workshop-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Мастерская Моти');tabs.innerHTML='<button id="wardrobe-tab" role="tab" aria-controls="wardrobe-panel">Гардероб</button><button id="gifts-tab" role="tab" aria-controls="gifts-panel">Подарки</button>';
+    const tabs=document.createElement('div');tabs.id='workshop-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Мастерская Моти');tabs.innerHTML='<button id="wardrobe-tab" role="tab" aria-controls="wardrobe-panel">Костюмы</button><button id="gifts-tab" role="tab" aria-controls="gifts-panel">Подарки</button>';
     const gifts=document.createElement('div');gifts.id='gifts-panel';gifts.hidden=true;gifts.className='gift-placeholder';gifts.setAttribute('role','tabpanel');gifts.setAttribute('aria-labelledby','gifts-tab');
     this.host.append(tabs,panel,gifts);
     this.gifts=new MotyaGifts(gifts,economy,motya,()=>{if(this.opened&&this.tab==='wardrobe')this.render();});
@@ -48,21 +52,18 @@ export class MotyaWardrobe {
   }
   private render(){
     const selected=skinById(this.selected);this.host.querySelector('#outfit-name')!.textContent=selected.name;
+    this.host.querySelector('#outfit-selected')!.textContent='Выбран костюм: '+selected.name;
     const rarity=this.host.querySelector<HTMLElement>('#outfit-rarity')!;rarity.textContent=rarityLabels[selected.rarity];rarity.dataset.rarity=selected.rarity;
     this.host.querySelector('#outfit-description')!.textContent=selected.description;
     this.host.querySelectorAll<HTMLButtonElement>('#wardrobe-emotions [data-emotion]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.emotion===this.emotion)));
     const cards=this.host.querySelector('#outfit-cards')!;cards.replaceChildren();
     for(const skin of motyaSkins){
-      const card=document.createElement('button');card.type='button';card.className='outfit-card';card.dataset.skin=skin.id;card.dataset.rarity=skin.rarity;
-      const unlocked=this.motya.isSkinUnlocked(skin.id);card.dataset.locked=String(!unlocked);card.setAttribute('aria-pressed',String(skin.id===this.selected));
-      const name=document.createElement('span');name.textContent=skin.name;
-      const rarity=document.createElement('small');rarity.textContent=rarityLabels[skin.rarity];
-      const worn=document.createElement('span');worn.className='outfit-worn';worn.textContent=!unlocked?(skin.id==='royal'?'🔒 Пройдите все 30 уровней':'🔒 В подарках Моти'):skin.id===this.motya.skin?'✓ Надето':'Доступно';
-      card.setAttribute('aria-label',skin.name+'. '+worn.textContent+'. Предпросмотр');
-      card.append(name,rarity,worn);card.onclick=()=>{this.selected=skin.id;this.host.querySelector('#wardrobe-status')!.textContent='';this.render();};cards.append(card);
+      const card=createSkinCard({skin,className:'outfit-card',showCondition:skin.id==='architect',unlocked:this.motya.isSkinUnlocked(skin.id),selected:skin.id===this.selected,worn:skin.id===this.motya.skin,
+        onSelect:()=>{this.selected=skin.id;this.host.querySelector('#wardrobe-status')!.textContent='';this.render();}});
+      card.dataset.skin=skin.id;cards.append(card);
     }
     const unlocked=this.motya.isSkinUnlocked(this.selected);
-    const wear=this.host.querySelector<HTMLButtonElement>('#outfit-wear')!;wear.disabled=!unlocked||this.selected===this.motya.skin;wear.textContent=!unlocked?(this.selected==='royal'?'🔒 Пройдите все 30 уровней':'🔒 Получите в подарках'):wear.disabled?'✓ Надето':'Надеть';
+    const wear=this.host.querySelector<HTMLButtonElement>('#outfit-wear')!;wear.disabled=!unlocked||this.selected===this.motya.skin;wear.textContent=!unlocked?(this.selected==='architect'?'🔒 '+skinUnlockCondition(selected):this.selected==='royal'?'🔒 Пройдите все 30 уровней':'🔒 Получите в подарках'):wear.disabled?'✓ Надето':'Надеть';
     this.motya.previewSkin(this.selected,this.emotion,this.host.querySelector('#wardrobe-stage')!);
   }
 }

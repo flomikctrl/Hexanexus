@@ -1,5 +1,5 @@
-import type {Vec} from './math';
-export const inGrid=(p:Vec)=>p.every(n=>Number.isInteger(n)&&n>=-1&&n<=1);
+import type {Vec,GridSize} from './math';
+export const inGrid=(p:Vec,size:GridSize=3)=>p.length===3&&p.every(n=>Number.isInteger(n+(size-1)/2)&&Math.abs(n)<size/2);
 export const adjacent=(a:Vec,b:Vec)=>a.reduce((n,v,i)=>n+Math.abs(v-b[i]),0)===1;
 export function neighborFromNormal(cell:Vec,normal:Vec):Vec|null {
   if(!normal.every(Number.isFinite))return null;

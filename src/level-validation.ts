@@ -2,13 +2,13 @@
 import {parseLevel} from './editor';
 import {Puzzle} from './state';
 import {solve} from './solver';
-import {allCells,apply,orientations,key,type Vec} from './math';
+import {allCells,gridCells,gridSize,apply,orientations,key,type Vec} from './math';
 import {project} from './projections';
 
 // Canonicalize the entire task, not an arbitrary witness. Include both anchors
 // and the volume allowed by the two silhouettes, under all 48 cube symmetries.
 export function campaignSignature(level:Level){
-  const volume=allCells.filter(p=>project([p],level.orientation).every((mask,s)=>mask.every((v,i)=>!v||level.targets[s][i])));
+  const volume=gridCells(gridSize(level)).filter(p=>project([p],level.orientation,gridSize(level)).every((mask,s)=>mask.every((v,i)=>!v||level.targets[s][i])));
   const variants:string[]=[];
   for(const m of orientations())for(const reflection of [1,-1]){
     const cells=(set:Vec[])=>set.map(p=>key(apply(m,[p[0]*reflection,p[1],p[2]]))).sort();

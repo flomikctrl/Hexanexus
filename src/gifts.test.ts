@@ -15,18 +15,18 @@ function setup(balance=1500){
 describe('Подарки: точная математика без повторов',()=>{
  it('стоят ровно 300; шансы 60/25/15 относятся к редкостям',()=>{
   expect(giftPrice).toBe(300);expect(giftOdds([]).map(g=>g.probability)).toEqual([.6,.25,.15]);
-  const counts=new Map<string,number>();for(let t=0;t<100;t++)for(let inner=0;inner<2;inner++){
+  const counts=new Map<string,number>();for(let t=0;t<100;t++)for(let inner=0;inner<12;inner++){
    let n=0;const skin=chooseGift([],bound=>(n++===0?t:inner%bound))!;counts.set(skin,(counts.get(skin)??0)+1);
   }
-  expect(Object.fromEntries(counts)).toEqual({baker:60,winter:60,cosmic:50,sleepy:15,wizard:15});
+  expect(Object.fromEntries(counts)).toEqual({baker:240,winter:240,flower:240,cosmic:150,pirate:150,sleepy:45,wizard:45,night:45,archdemon:45});
  });
  it.each([[0,'baker'],[59,'baker'],[60,'cosmic'],[84,'cosmic'],[85,'sleepy'],[99,'sleepy']] as const)('граница билета %s → %s',(ticket,expected)=>{
   let first=true;expect(chooseGift([],()=>{if(first){first=false;return ticket;}return 0;})).toBe(expected);
  });
  it('нормализует оставшиеся редкости, не повышает вес за число костюмов',()=>{
   expect(giftOdds(['baker']).map(g=>g.probability)).toEqual([.6,.25,.15]);
-  expect(giftOdds(['baker','winter']).map(g=>g.probability)).toEqual([0,.625,.375]);
-  expect(giftOdds(['cosmic']).map(g=>g.probability)).toEqual([.8,0,.2]);
+  expect(giftOdds(['baker','winter','flower']).map(g=>g.probability)).toEqual([0,.625,.375]);
+  expect(giftOdds(['cosmic','pirate']).map(g=>g.probability)).toEqual([.8,0,.2]);
  });
  it.each(giftSkinIds)('последний %s гарантирован, собранная коллекция пуста',last=>{
   const owned=giftSkinIds.filter(id=>id!==last);for(const value of [0,.99])expect(chooseGift(owned,n=>Math.floor(value*n))).toBe(last);
@@ -49,9 +49,9 @@ describe('Атомарная покупка и одноразовая мигра
   const t=setup();t.economy.subscribe(()=>expect(t.economy.buyGift(()=>0)).toBeNull());
   expect(t.economy.buyGift(()=>0)).not.toBeNull();for(let i=0;i<20;i++)expect(t.economy.buyGift(()=>0)).toBeNull();expect(t.economy.balance).toBe(1200);
  });
- it('пять покупок дают все пять, шестая не списывает',()=>{
-  const t=setup(1800),received=[];for(let i=0;i<5;i++){const r=t.economy.buyGift(()=>0)!;received.push(r.skin);expect(t.economy.acknowledgeGift(r.id)).toBe(true);}
-  expect(new Set(received).size).toBe(5);expect(received).not.toContain('classic');expect(received).not.toContain('royal');expect(t.economy.balance).toBe(300);
+ it('девять покупок дают все девять, десятая не списывает',()=>{
+  const t=setup(3000),received=[];for(let i=0;i<9;i++){const r=t.economy.buyGift(()=>0)!;received.push(r.skin);expect(t.economy.acknowledgeGift(r.id)).toBe(true);}
+  expect(new Set(received).size).toBe(9);expect(received).not.toContain('classic');expect(received).not.toContain('royal');expect(received).not.toContain('architect');expect(t.economy.balance).toBe(300);
   const before=t.data.get(economyKey);expect(t.economy.buyGift(()=>0)).toBeNull();expect(t.data.get(economyKey)).toBe(before);
  });
  it('ошибка записи не выдаёт костюм, не списывает; повтор после восстановления возможен',()=>{

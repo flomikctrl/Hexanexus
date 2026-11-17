@@ -6,7 +6,7 @@ import {readProgress,progressKey} from './progress';
 function memory(initial:Record<string,string>={}){const data=new Map(Object.entries(initial));return {data,getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};}
 describe('Эксклюзивная награда реальной кампании',()=>{
   it('остаётся только наградой кампании, седьмым и изначально закрытым костюмом',()=>{
-    expect(motyaSkins).toHaveLength(7);const royal=motyaSkins.find(s=>s.id==='royal')!;
+    expect(motyaSkins[6].id).toBe('royal');const royal=motyaSkins.find(s=>s.id==='royal')!;
     expect(royal).toMatchObject({name:'Королева Мотя',rarity:'exclusive',initiallyUnlocked:false,acquisition:'campaign-30',canDropFromGifts:false,canPurchase:false});
     expect(motyaCollection('classic').ownedSkinIds).not.toContain('royal');expect(motyaCollection('classic',true).ownedSkinIds).toEqual(['classic','royal']);
   });

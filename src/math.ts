@@ -3,7 +3,14 @@ export type Axis = 'X' | 'Y' | 'Z';
 export type Mat = [Vec, Vec, Vec];
 export const identity = (): Mat => [[1,0,0],[0,1,0],[0,0,1]];
 export const key = (v: Vec) => v.join(',');
-export const allCells: Vec[] = Array.from({length:27}, (_,i) => [i%3-1, Math.floor(i/3)%3-1, Math.floor(i/9)-1]);
+export type GridSize=3|4;
+const grids=new Map<GridSize,Vec[]>();
+export function gridCells(size:GridSize=3):Vec[]{
+ if(!grids.has(size)){const c=(size-1)/2;grids.set(size,Array.from({length:size**3},(_,i)=>[i%size-c,Math.floor(i/size)%size-c,Math.floor(i/(size*size))-c] as Vec));}
+ return grids.get(size)!;
+}
+export const allCells:Vec[]=gridCells(3);
+export const gridSize=(level:{size?:GridSize}):GridSize=>level.size??3;
 export function turn([x,y,z]: Vec, axis: Axis, d = 1): Vec {
   const v: Vec = axis==='X' ? [x,-d*z,d*y] : axis==='Y' ? [d*z,y,-d*x] : [-d*y,d*x,z];
   return v.map(n => n===0 ? 0 : n) as Vec;

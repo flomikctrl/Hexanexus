@@ -1,12 +1,12 @@
 import type {MotyaSkinId} from './motya-skins';
 
-export const giftSkinIds=['baker','winter','cosmic','sleepy','wizard'] as const;
+export const giftSkinIds=['baker','winter','cosmic','sleepy','wizard','flower','pirate','night','archdemon'] as const;
 export type GiftSkinId=typeof giftSkinIds[number];
 export type GiftRarity='common'|'rare'|'legendary';
 export const giftGroups:readonly {rarity:GiftRarity;weight:number;skins:readonly GiftSkinId[]}[]=[
- {rarity:'common',weight:60,skins:['baker','winter']},
- {rarity:'rare',weight:25,skins:['cosmic']},
- {rarity:'legendary',weight:15,skins:['sleepy','wizard']}
+ {rarity:'common',weight:60,skins:['baker','winter','flower']},
+ {rarity:'rare',weight:25,skins:['cosmic','pirate']},
+ {rarity:'legendary',weight:15,skins:['sleepy','wizard','night','archdemon']}
 ];
 export interface GiftReceipt {id:number;skin:GiftSkinId}
 export interface GiftCollection {version:1;owned:GiftSkinId[];sequence:number;pending:GiftReceipt|null}

@@ -3,6 +3,7 @@ import {connectedOrder} from './connectivity';
 import {Puzzle} from './state';
 import type {Level} from './levels';
 import type {Tool} from './interaction';
+import {findLargeHintPath} from './large-solver';
 
 export interface HintStep {tool:Tool;cell:Vec}
 export interface NumberedHint extends HintStep {number:number}
@@ -29,6 +30,7 @@ class Heap {
 // A bounded search over real legal states, with a guaranteed legal rebuild
 // fallback when a solution from the immutable anchors is cheaper to find.
 export function findHintPath(s:HintSnapshot,options:{maxExpanded?:number;maxMs?:number;now?:()=>number;directBudget?:number}={}):HintPathResult {
+ if(s.level.size===4)return findLargeHintPath(s,options);
  const now=options.now??(()=>performance.now()),started=now(),maxMs=options.maxMs??700,maxExpanded=options.maxExpanded??22000;
  let expanded=0,limited=false;
  const result=(status:HintPathResult['status'],steps:HintStep[]=[],fallback=false):HintPathResult=>({status,steps,expanded,fallback});

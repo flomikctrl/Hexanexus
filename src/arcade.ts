@@ -46,7 +46,7 @@ export class ArcadeSession {
  private initialBest:number;
  constructor(public state:ArcadeSave,private storage?:ArcadeStorage,private now:()=>number=()=>performance.now(),private emit:(event:ArcadeEvent)=>void=()=>{}){
   this.records=readArcadeRecords(storage);this.initialBest=this.records.bestScore;this.last=now();
-  this.puzzle=new Puzzle({name:'Бесконечная мастерская',fixed:structuredClone(state.fixed),available:allCells.filter(p=>!state.fixed.some(v=>key(v)===key(p))),limit:27-state.fixed.length,targets:state.targets,orientation:identity()});
+  this.puzzle=new Puzzle({name:'Бесконечный режим',fixed:structuredClone(state.fixed),available:allCells.filter(p=>!state.fixed.some(v=>key(v)===key(p))),limit:27-state.fixed.length,targets:state.targets,orientation:identity()});
   this.puzzle.placed=structuredClone(state.placed);
  }
  static create(seed:number,storage?:ArcadeStorage,now?:()=>number,emit?:(e:ArcadeEvent)=>void){

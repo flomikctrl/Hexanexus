@@ -4,7 +4,7 @@ import {ArcadeSession} from './arcade';
 function fixture(){let screen='home',modal=false,menu=false,now=0;const calls:string[]=[];const nav=new BackNavigation({closeModal:()=>{if(!modal)return false;modal=false;calls.push('modal');return true;},closeMenu:()=>{if(!menu)return false;menu=false;calls.push('menu');return true;},screen:()=>screen,home:()=>{screen='home';calls.push('home');},pause:()=>{modal=true;calls.push('pause');},hintExit:()=>calls.push('hint'),exit:()=>calls.push('exit')},()=>now);return {nav,calls,setScreen:(s:string)=>{screen=s;nav.reset();},modal:()=>{modal=true;},menu:()=>{menu=true;},time:(n:number)=>{now=n;}};}
 describe('system Back priorities',()=>{
  it('closes a modal before the menu and never exits',()=>{const f=fixture();f.menu();f.modal();f.nav.handle();f.nav.handle();expect(f.calls).toEqual(['modal','menu']);});
- it.each(['levels','achievements','wardrobe'])('returns from %s to home',s=>{const f=fixture();f.setScreen(s);f.nav.handle();expect(f.calls).toEqual(['home']);});
+ it.each(['levels','achievements','wardrobe','profile'])('returns from %s to home',s=>{const f=fixture();f.setScreen(s);f.nav.handle();expect(f.calls).toEqual(['home']);});
  it('opens pause during a game, and routes another Back to that modal',()=>{const f=fixture();f.setScreen('game');f.nav.handle();f.nav.handle();expect(f.calls).toEqual(['pause','modal']);});
  it('one home press only shows the small exit message',()=>{const f=fixture();f.nav.handle();expect(f.calls).toEqual(['hint']);});
  it('a second home press within two seconds exits',()=>{const f=fixture();f.nav.handle();f.time(1999);f.nav.handle();expect(f.calls).toEqual(['hint','exit']);});

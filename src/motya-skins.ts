@@ -1,10 +1,10 @@
-export const skinIds=['classic','sleepy','baker','winter','wizard','cosmic','royal'] as const;
+export const skinIds=['classic','sleepy','baker','winter','wizard','cosmic','royal','architect','flower','pirate','night','archdemon'] as const;
 export type MotyaSkinId=typeof skinIds[number];
 export type MotyaEmotion='IDLE'|'SAD'|'SHOCK';
 export type SkinRarity='base'|'common'|'rare'|'legendary'|'exclusive';
 export interface MotyaSkin {
   id:MotyaSkinId;name:string;rarity:SkinRarity;initiallyUnlocked:boolean;
-  acquisition:'included'|'gift'|'campaign-30';description:string;
+  acquisition:'included'|'gift'|'campaign-30'|'campaign-2-30';description:string;
   canDropFromGifts?:boolean;canPurchase?:boolean;
 }
 export interface MotyaCollection {ownedSkinIds:MotyaSkinId[];equippedSkinId:MotyaSkinId}
@@ -17,7 +17,12 @@ export const motyaSkins:readonly MotyaSkin[]=[
   {id:'winter',name:'Зимняя Мотя',rarity:'common',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'В тёплом наряде даже снежинки не страшны.'},
   {id:'wizard',name:'Мотя-волшебница',rarity:'legendary',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Самое сильное заклинание — «попробуем ещё».'},
   {id:'cosmic',name:'Космическая Мотя',rarity:'rare',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Маленькая моль в большой вселенной форм.'},
-  {id:'royal',name:'Королева Мотя',rarity:'exclusive',initiallyUnlocked:false,acquisition:'campaign-30',canDropFromGifts:false,canPurchase:false,description:'Корона для тех, кто разгадал все силуэты.'}
+  {id:'royal',name:'Королева Мотя',rarity:'exclusive',initiallyUnlocked:false,acquisition:'campaign-30',canDropFromGifts:false,canPurchase:false,description:'Корона для тех, кто разгадал все силуэты.'},
+  {id:'architect',name:'Мотя-архитектор',rarity:'exclusive',initiallyUnlocked:false,acquisition:'campaign-2-30',canDropFromGifts:false,canPurchase:false,description:'Новые грани, смелые замыслы и тёплая мастерская.'},
+  {id:'flower',name:'Цветочная Мотя',rarity:'common',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Пусть в мастерской распускаются новые идеи.'},
+  {id:'pirate',name:'Пиратская Мотя',rarity:'rare',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Курс на сокровища пространственных загадок!'},
+  {id:'night',name:'Ночная Мотя',rarity:'legendary',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Тихое волшебство под ночными крыльями.'},
+  {id:'archdemon',name:'Мотя-архидемон',rarity:'legendary',initiallyUnlocked:false,acquisition:'gift',canDropFromGifts:true,description:'Даже у грозной Моти есть мягкая сторона.'}
 ];
 export function isSkinId(id:unknown):id is MotyaSkinId{return skinIds.some(value=>value===id);}
 export function skinById(id:unknown):MotyaSkin{return motyaSkins.find(skin=>skin.id===id)??motyaSkins[0];}

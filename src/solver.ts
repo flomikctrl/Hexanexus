@@ -2,8 +2,10 @@ import {apply, orientations, type Mat, type Vec} from './math';
 import type {Level} from './levels';
 import {project} from './projections';
 import {adjacent} from './connectivity';
+import {solveLarge} from './large-solver';
 export interface Solution {placed:Vec[];orientation:Mat}
 export function solve(l:Level,allowRotation=false):Solution|null {
+  if(l.size===4){for(const m of allowRotation?orientations():[l.orientation]){const result=solveLarge(l,m);if(result)return result;}return null;}
   for(const m of allowRotation?orientations():[l.orientation]){
     const base=project(l.fixed,m);
     if(base.some((mask,s)=>mask.some((v,i)=>v&&!l.targets[s][i])))continue;

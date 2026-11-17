@@ -17,11 +17,11 @@ export class ArcadeUI {
  constructor(private view:Scene,private motya:MotyaAssistant,private enter:()=>void,private home:()=>void,private message:(text:string)=>void,private economy?:Economy){
   try{this.storage=localStorage;}catch{}
   this.session=ArcadeSession.restore(this.storage,undefined,event=>this.reaction(event));
-  el('play').insertAdjacentHTML('afterend','<button id="open-arcade">∞ Бесконечная мастерская</button>');
+  el('play').insertAdjacentHTML('afterend','<button id="open-arcade">∞ Бесконечный режим</button>');
   document.querySelector('.game-header')!.insertAdjacentHTML('beforeend','<div id="arcade-hud" hidden><span id="arcade-score"></span><span id="arcade-lives" aria-label="Жизни"></span><time id="arcade-time" aria-label="Осталось времени"></time></div>');
-  el('app').insertAdjacentHTML('beforeend',`<dialog id="arcade-entry" class="arcade-dialog" aria-labelledby="arcade-entry-title"><small>НОВЫЙ РЕЖИМ · ОФЛАЙН</small><h2 id="arcade-entry-title">Бесконечная мастерская</h2><p>Одна конструкция. Один ход на каждый новый силуэт: добавьте или удалите кубик. Ошибка сразу отнимает сердечко и отменяет ход. Всего три жизни.</p><p id="arcade-records"></p><button id="arcade-continue" class="primary">Продолжить партию</button><button id="arcade-start">Новая партия</button><button id="arcade-entry-home">Назад</button></dialog>
+  el('app').insertAdjacentHTML('beforeend',`<dialog id="arcade-entry" class="arcade-dialog" aria-labelledby="arcade-entry-title"><small>НОВЫЙ РЕЖИМ · ОФЛАЙН</small><h2 id="arcade-entry-title">Бесконечный режим</h2><p>Одна конструкция. Один ход на каждый новый силуэт: добавьте или удалите кубик. Ошибка сразу отнимает сердечко и отменяет ход. Всего три жизни.</p><p id="arcade-records"></p><button id="arcade-continue" class="primary">Продолжить партию</button><button id="arcade-start">Новая партия</button><button id="arcade-entry-home">Назад</button></dialog>
   <dialog id="arcade-pause" class="arcade-dialog" aria-labelledby="arcade-pause-title"><small>ТАЙМЕР ОСТАНОВЛЕН</small><h2 id="arcade-pause-title">Пауза</h2><button id="arcade-resume" class="primary">Продолжить</button><button id="arcade-view">Начальный ракурс</button><button id="arcade-pause-home">Сохранить и выйти</button><p>Найдите один ход для обоих силуэтов. Основа не удаляется. За запрещённый ход жизнь не снимается.</p></dialog>
-  <dialog id="arcade-results" class="arcade-dialog" aria-labelledby="arcade-result-title"><small>БЕСКОНЕЧНАЯ МАСТЕРСКАЯ</small><h2 id="arcade-result-title">Хорошая работа!</h2><p id="arcade-result-values"></p><p id="arcade-result-records"></p><button id="arcade-replay" class="primary">Ещё одна партия</button><button id="arcade-result-home">Главное меню</button></dialog>`);
+  <dialog id="arcade-results" class="arcade-dialog" aria-labelledby="arcade-result-title"><small>БЕСКОНЕЧНЫЙ РЕЖИМ</small><h2 id="arcade-result-title">Хорошая работа!</h2><p id="arcade-result-values"></p><p id="arcade-result-records"></p><button id="arcade-replay" class="primary">Ещё одна партия</button><button id="arcade-result-home">Главное меню</button></dialog>`);
   el('open-arcade').onclick=()=>this.open();
   el('arcade-entry-home').onclick=()=>el<HTMLDialogElement>('arcade-entry').close();
   el('arcade-start').onclick=()=>{el<HTMLDialogElement>('arcade-entry').close();this.start(true);};
@@ -91,7 +91,7 @@ export class ArcadeUI {
   el('arcade-hud').hidden=false;el('level-name').textContent=`Раунд ${s.round}`;el('arcade-score').textContent=`${s.score} очков`;
   el('arcade-lives').textContent='♥'.repeat(s.lives)+'♡'.repeat(3-s.lives);el('arcade-lives').setAttribute('aria-label',`Жизни: ${s.lives} из 3`);
   const seconds=Math.ceil(s.remainingMs/1000);el('arcade-time').textContent=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;el('arcade-time').classList.toggle('urgent',seconds<=10);
-  el('menu').setAttribute('aria-label','Пауза бесконечной мастерской');
+  el('menu').setAttribute('aria-label','Пауза бесконечного режима');
  }
  private reaction(event:ArcadeEvent){
   if(event.type==='correct')this.rewarded=this.economy?.recordArcade(event.id,event.round-1)??false;

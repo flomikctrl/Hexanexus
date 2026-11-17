@@ -6,12 +6,12 @@ import {PhoebeController,readPhoebeSetting} from './phoebe-state';
 import {PhoebeSpriteSwitcher} from './phoebe-sprite';
 
 describe('Мотя: оригинальные образы и безопасное сохранение',()=>{
-  it('содержит стартовый, пять подарочных и эксклюзивный образы',()=>{
-    expect(motyaSkins).toHaveLength(7);expect(new Set(motyaSkins.map(s=>s.id)).size).toBe(7);
+  it('содержит стартовый, девять подарочных и два эксклюзивных образа',()=>{
+    expect(motyaSkins).toHaveLength(12);expect(new Set(motyaSkins.map(s=>s.id)).size).toBe(12);
     expect(motyaCollection('wizard').ownedSkinIds).toEqual(['classic']);
     expect(motyaSkins.filter(s=>s.initiallyUnlocked)).toHaveLength(1);
     expect(motyaSkins.filter(s=>s.initiallyUnlocked).every(s=>s.acquisition==='included')).toBe(true);
-    expect(motyaSkins.filter(s=>s.rarity==='legendary').map(s=>s.id)).toEqual(['sleepy','wizard']);
+    expect(motyaSkins.filter(s=>s.rarity==='legendary').map(s=>s.id)).toEqual(['sleepy','wizard','night','archdemon']);
   });
   it('возвращается к classic при первом запуске, неизвестном ID и отказе хранилища',()=>{
     for(const saved of [null,'','missing','../wizard','{"id":"wizard"}'])expect(readMotyaSkin({getItem:()=>saved})).toBe('classic');
@@ -21,7 +21,7 @@ describe('Мотя: оригинальные образы и безопасно�
     const data=new Map([['hexanexus.progress.v2','old-progress'],['hexanexus.music','old-music'],['hexanexus.phoebe.enabled','false']]);
     const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>data.set(key,value)};
     for(const id of skinIds.filter(id=>id!=='royal')){expect(saveMotyaSkin(storage,id,false,skinIds)).toBe(true);expect(readMotyaSkin(storage,false,skinIds)).toBe(id);}
-    expect(data.size).toBe(4);expect(data.get(skinStorageKey)).toBe('cosmic');
+    expect(data.size).toBe(4);expect(data.get(skinStorageKey)).toBe('archdemon');
     expect(data.get('hexanexus.progress.v2')).toBe('old-progress');expect(data.get('hexanexus.music')).toBe('old-music');expect(readPhoebeSetting(storage)).toBe(false);
     expect(saveMotyaSkin({setItem:()=>{throw Error('denied');}},'winter')).toBe(false);
   });
@@ -30,7 +30,7 @@ describe('Мотя: оригинальные образы и безопасно�
     for(const emotion of ['IDLE','SAD','SHOCK'] as const){
       const png=readFileSync(new URL('../public'+skinSprite(id,emotion),import.meta.url));
       expect(png.subarray(0,8)).toEqual(Buffer.from([137,80,78,71,13,10,26,10]));
-      expect(png.readUInt32BE(16)).toBe(id==='royal'?1254:1024);expect(png.readUInt32BE(20)).toBe(id==='royal'?1254:1024);expect(png[25]).toBe(6);
+      expect(png.readUInt32BE(16)).toBe(id==='royal'?1254:id==='architect'?724:id==='night'?340:1024);expect(png.readUInt32BE(20)).toBe(id==='royal'?1254:id==='architect'?724:id==='night'?340:1024);expect(png[25]).toBe(6);
       hashes.add(createHash('sha256').update(png).digest('hex'));
     }
     expect(hashes.size).toBe(3);

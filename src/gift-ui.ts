@@ -1,6 +1,6 @@
 import './gifts.css';
 import {Economy,giftPrice,hexics} from './economy';
-import {giftOdds,type GiftReceipt} from './gifts';
+import {giftOdds,giftSkinIds,type GiftReceipt} from './gifts';
 import {skinById,rarityLabels} from './motya-skins';
 import type {MotyaAssistant} from './motya';
 
@@ -36,14 +36,14 @@ export class MotyaGifts {
  refresh(){
   const {owned,pending}=this.economy.gifts,button=this.el<HTMLButtonElement>('gift-open');
   this.el('gift-balance').textContent=this.economy.ready?hexics(this.economy.balance):'Гексики недоступны';
-  this.el('gift-collection').textContent=`Коллекция: ${owned.length}/5`;
+  this.el('gift-collection').textContent=`Коллекция: ${owned.length}/${giftSkinIds.length}`;
   const odds=this.el('gift-odds');odds.replaceChildren();
   for(const group of giftOdds(owned)){
    const item=document.createElement('span');item.dataset.rarity=group.rarity;
    item.textContent=`${{common:'Обычные',rare:'Редкие',legendary:'Легендарные'}[group.rarity]}: ${group.skins.length?`${(group.probability*100).toLocaleString('ru-RU',{maximumFractionDigits:2})}%`:'собраны'}`;
    item.title=group.skins.map(id=>skinById(id).name).join(', ');odds.append(item);
   }
-  const complete=owned.length===5,poor=this.economy.balance<giftPrice;
+  const complete=owned.length===giftSkinIds.length,poor=this.economy.balance<giftPrice;
   button.disabled=!this.economy.ready||complete||poor||!!pending||this.dialog.open;
   button.textContent=!this.economy.ready?'Подарки недоступны':pending?'Подарок уже открыт':complete?'Коллекция собрана!':poor?'Недостаточно гексиков':`Открыть за ${giftPrice} ⬡`;
  }

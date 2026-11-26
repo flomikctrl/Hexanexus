@@ -1,5 +1,8 @@
 :root{background:#102b2d;color:#e4e9dc;font-family:'Segoe UI',sans-serif}
 body[data-screen=home]{background:radial-gradient(ellipse at 50% 42%,#1b3838,#0d2428 76%)}
+body[data-screen=home][data-field-background=stars]{background:radial-gradient(circle at 18% 26%,#8091aa 1px,transparent 2px),radial-gradient(circle at 82% 15%,#9b9cba 1px,transparent 2px),radial-gradient(circle at 67% 67%,#7786a5 1px,transparent 2px),radial-gradient(ellipse at 50% 42%,#24223e,#0d1427 76%)}
+body[data-screen=home][data-field-background=forest]{background:repeating-linear-gradient(87deg,transparent 0 100px,#071e1540 105px 120px,transparent 130px 210px),radial-gradient(ellipse at 50% 42%,#203e2d,#0d251d 76%)}
+body[data-screen=home][data-field-background=magic]{background:radial-gradient(ellipse at 50% 42%,#303346,#151524 76%)}
 #home.home-lobby{grid-template-areas:'top' 'brand' 'stage' 'actions';grid-template-rows:auto auto minmax(90px,1fr) auto;gap:10px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 #home.home-lobby .lobby-brand h1{font-size:clamp(33px,4.2vw,47px)}
 #home.home-lobby .home-actions{grid-template-columns:1fr;max-width:460px;gap:8px}

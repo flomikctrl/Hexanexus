@@ -16,6 +16,7 @@ type LearningStorage=Pick<Storage,'getItem'|'setItem'>;
 export function learningLevel():Level{const fixed:Vec[]=[[0,0,0]],answer:Vec[]=[[1,0,0],[1,1,0]];return {name:'Знакомство с Гексанексусом',fixed,available:gridCells(3).filter(v=>key(v)!=='0,0,0'),limit:2,orientation:identity(),targets:project([...fixed,...answer],identity())};}
 export class Onboarding {
  step=0;done=false;error='';canSkip=false;
+ get actionButton(){return (['','place','remove','undo','show-errors','place'] as const)[this.step];}
  constructor(private storage?:LearningStorage){this.canSkip=hasExistingPlayer(storage);try{const v=JSON.parse(storage?.getItem(onboardingKey)??'null');if(v?.version===1){this.done=v.done===true;this.canSkip=v.canSkip===true;if(Number.isInteger(v.step)&&v.step>=0&&v.step<learningSteps.length)this.step=v.step;}else this.persist();}catch{this.persist();}}
  private persist(){try{this.storage?.setItem(onboardingKey,JSON.stringify({version:1,done:this.done,step:this.step,canSkip:this.canSkip}));this.error='';return true;}catch{this.error='Не удалось сохранить обучение. Освободите место и попробуйте ещё раз.';return false;}}
  advance(action:'rotate'|'place'|'remove'|'undo'|'silhouettes'|'solve'){

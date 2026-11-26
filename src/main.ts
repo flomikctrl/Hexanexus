@@ -32,6 +32,7 @@ import './polish.css';
 import {Onboarding,learningSteps} from './onboarding';
 import './onboarding.css';
 import {CompletionDelay} from './completion';
+import {Customization} from './customization';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 <main id="home" class="screen"><div class="home-copy"><h1>Гексанексус</h1><div class="home-actions"><button id="play" class="primary">Кампания</button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Костюмы и подарки</button><button id="open-settings">Настройки</button></div></div></main>
@@ -43,7 +44,7 @@ document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 </section>
 <dialog id="settings" aria-labelledby="settings-title"><div class="collection-heading"><h2 id="settings-title">Настройки</h2><button id="settings-close" aria-label="Закрыть настройки">✕</button></div><div id="music-settings"></div><div id="mascot-settings"></div><button id="how-to">Как играть</button></dialog>
 <dialog id="pause"><small>ГЕКСАНЕКСУС</small><h2>Пауза</h2><button id="resume" class="primary">Продолжить</button><button id="camera-reset" title="Вернуть только камеру, сохранив кубики">Сбросить ракурс</button><button id="pause-help">Как играть</button><label class="mode-label">Силуэты<select id="projection-mode"><option value="normal">Только целевые картинки</option><option value="training">Обучение: сравнение цветами</option></select></label><button id="pause-settings">Настройки</button><button id="pause-levels">Выбор уровней</button><button id="pause-home">Главное меню</button></dialog>
-<dialog id="victory"><div class="victory-symbol">✦</div><small>ГАРМОНИЯ ВОССТАНОВЛЕНА</small><h2>Головоломка решена!</h2><p>Оба силуэта совпадают. Вы нашли общую форму.</p><button id="next" class="primary">Следующее испытание →</button><button id="continue">Рассмотреть решение</button><button id="victory-levels">Выбор уровней</button></dialog>`;
+<dialog id="victory"><div class="victory-symbol">✦</div><small>ГАРМОНИЯ ВОССТАНОВЛЕНА</small><h2>Головоломка решена!</h2><p>Оба силуэта совпадают. Вы нашли общую форму.</p><button id="next" class="primary">Следующее испытание →</button><button id="continue">Рассмотреть решение</button><button id="victory-levels">В главное меню</button></dialog>`;
 
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 document.querySelector('#app')!.insertAdjacentHTML('beforeend',`<dialog id="campaign-complete" aria-labelledby="campaign-title"><div class="completion-sparkles" aria-hidden="true">${Array.from({length:12},(_,i)=>`<i style="--spark:${i}">✦</i>`).join('')}<span>✦</span></div><small>МАСТЕРСКАЯ СИЛУЭТОВ</small><h2 id="campaign-title">Поздравляем!</h2><p>Вы прошли все уровни Гексанексуса!</p><p id="completion-count"></p><button id="completion-home" class="primary">Главное меню</button><button id="completion-levels">Выбор уровней</button><button id="completion-replay">Играть заново</button></dialog>`);
@@ -79,9 +80,10 @@ el('level-cards').insertAdjacentHTML('beforebegin','<nav id="level-groups" aria-
 if(progress.resume?.level===puzzle.level.name){for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];}
 let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'|'achievements'|'profile'|'campaigns'='home';
 let tool:Tool='place',projectionMode:ProjectionMode='normal',winShown=false;
-const view=new Scene(el('world'));
+const customization=new Customization(rewardStorage);document.body.dataset.fieldBackground=customization.settings.background;
+const view=new Scene(el('world'),customization.settings);
 const motya=new MotyaAssistant(skin=>skin==='classic'||(skin==='royal'?rewards.royalUnlocked:economy.ready&&(skin==='architect'?economy.architectUnlocked:economy.gifts.owned.includes(skin))),economy.ready);
-const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'),economy);
+const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'),economy,customization,settings=>{document.body.dataset.fieldBackground=settings.background;view.setAppearance(settings);});
 let arcade:ArcadeUI|undefined;
 let achievementsFromProfile=false;
 new EconomyUI(economy,motya,()=>{achievementsFromProfile=false;showScreen('achievements');},()=>showScreen(achievementsFromProfile?'profile':'home'));
@@ -148,6 +150,7 @@ function checkWin(){
  });
 }
 function draw(){
+  view.setGameFraming(screen==='game'&&!learningActive);
   if(arcade?.active){campaignHints.clear();arcade.draw();return;}
   if(screen!=='game'&&screen!=='editor'){campaignHints.refresh();return;}
   if(editing)campaignHints.clear();
@@ -263,7 +266,7 @@ el('place').onclick=()=>setTool('place');el('remove').onclick=()=>setTool('remov
 el('undo').onclick=()=>{if(arcade?.active||completion.pending||learningActive&&onboarding.step!==3)return;puzzle.undo();if(learningActive)advanceLearning('undo');draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active||learningActive||completion.pending)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
 el<HTMLSelectElement>('projection-mode').onchange=e=>setProjectionMode((e.target as HTMLSelectElement).value as ProjectionMode);
 el('show-errors').onclick=()=>setProjectionMode(projectionMode==='normal'?'training':'normal');
-el('next').onclick=()=>{closeDialog('victory');const next=nextLevelIndex(index,levels.length);if(next!==null)loadLevel(next);else showScreen('levels');};el('continue').onclick=()=>closeDialog('victory');el('victory-levels').onclick=()=>{closeDialog('victory');showScreen('levels');};
+el('next').onclick=()=>{closeDialog('victory');const next=nextLevelIndex(index,levels.length);if(next!==null)loadLevel(next);else showScreen('levels');};el('continue').onclick=()=>closeDialog('victory');el('victory-levels').onclick=()=>{closeDialog('victory');showScreen('home');};
 el('completion-home').onclick=()=>{closeDialog('campaign-complete');showScreen('home');};
 el('completion-levels').onclick=()=>{closeDialog('campaign-complete');showScreen('levels');};
 el('completion-replay').onclick=()=>{closeDialog('campaign-complete');loadLevel(0);};
@@ -276,7 +279,7 @@ function renderLearning(){
  el('learning-count').textContent='ЗНАКОМСТВО · '+(onboarding.step+1)+' / '+learningSteps.length;
  el('learning-title').textContent=step.title;el('learning-text').textContent=onboarding.error||step.text;
  el('learning-skip').hidden=!onboarding.canSkip;
- const action=onboarding.step===3?'undo':onboarding.step===4?'show-errors':onboarding.step===1||onboarding.step===5?'place':'';
+ const action=onboarding.actionButton;
  for(const id of ['place','remove','undo','reset','hint','show-errors']){const b=el<HTMLButtonElement>(id);b.dataset.learningAction=String(id===action);b.disabled=id!==action;}
  for(const id of ['pause-levels','pause-home'])el<HTMLButtonElement>(id).disabled=true;
 }

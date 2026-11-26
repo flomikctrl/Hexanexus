@@ -59,7 +59,7 @@ for(const [packaged,source]of iconPairs){if(!readFileSync(join(inspect,packaged)
 const manifestTree=run(join(tools,exe('aapt')),['dump','xmltree',apk,'AndroidManifest.xml']);
 const publicRelease=/Hexanexus-v[\d.]+\.apk$/.test(apk);
 const version=JSON.parse(readFileSync('package.json','utf8')).version;
-if(['1.3.0','1.4.0','1.4.1','1.4.2'].includes(version)){
+if(['1.3.0','1.4.0','1.4.1','1.4.2','1.5.0'].includes(version)){
  const coin='assets/public/icons/hexic.svg';if(!files.includes(coin))throw Error('Гексики: нет иконки шестиугольной монеты');
  run(join(java,'bin',exe('jar')),['xf',apk,coin],inspect);
  if(!readFileSync(join(inspect,coin)).equals(readFileSync('public/icons/hexic.svg')))throw Error('Иконка гексиков отличается от исходника');
@@ -71,7 +71,7 @@ if(['1.3.0','1.4.0','1.4.1','1.4.2'].includes(version)){
  const plugins=JSON.parse(readFileSync(join(inspect,pluginsFile),'utf8'));
  if(!plugins.some(p=>p.pkg==='@capacitor/app'&&p.classpath==='com.capacitorjs.plugins.app.AppPlugin')||!code.includes('Нажмите ещё раз для выхода'))throw Error('Native Back/exit integration missing');
 }
-if(['1.4.0','1.4.1','1.4.2'].includes(version)){
+if(['1.4.0','1.4.1','1.4.2','1.5.0'].includes(version)){
  for(const text of ['wardrobe-equip','outfit-selected','Костюмы и подарки','Бесконечный режим'])if(!code.includes(text))throw Error('Final 1.4 UI missing: '+text);
  if(!code.includes('Мотя-архитектор')||code.includes('Костюм появится после добавления его спрайтов'))throw Error('Architect outfit missing or still a placeholder');
  for(const text of ['profile-screen','Мой профиль','profile-avatar-grid','Повелитель граней','profile-campaign-row','campaign2','campaign-screen','hexanexus.campaign2.progress.v1','Новая грань: покоритель'])if(!code.includes(text))throw Error('Profile/second campaign missing from APK: '+text);
@@ -108,4 +108,4 @@ const signature=run(join(java,'bin',exe('java')),['-jar',join(tools,'lib','apksi
 if(!signature.includes('7fd9293ff232d5623937b05a6da52032092900a8de241db1c9fcdfca12218c68'))throw Error('APK certificate differs from existing installations');
 const musicHash=createHash('sha256').update(readFileSync(join(inspect,'assets/public/audio/silhouette-loop.wav'))).digest('hex');
 if(musicHash!==createHash('sha256').update(readFileSync('public/audio/silhouette-loop.wav')).digest('hex'))throw Error('Bundled music differs from the source asset');
-const report={musicSha256:musicHash,apk,size:statSync(apk).size,sha256:createHash('sha256').update(readFileSync(apk)).digest('hex'),appId:config.appId,levels:levelNames.length+(['1.4.0','1.4.1','1.4.2'].includes(version)?30:0),campaignLevels:['1.4.0','1.4.1','1.4.2'].includes(version)?[30,30]:[levelNames.length],mascotLines:dialogue.length,motyaSkins:skins.length,packagedMotyaSprites:spriteFiles.length,editorExcluded:true,packagedMusic:true,webFiles:files.filter(n=>n.startsWith('assets/public/')).length,networkPermission:false,signatureVerified:true,signature};mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/apk-verification.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+const report={musicSha256:musicHash,apk,size:statSync(apk).size,sha256:createHash('sha256').update(readFileSync(apk)).digest('hex'),appId:config.appId,levels:levelNames.length+(['1.4.0','1.4.1','1.4.2','1.5.0'].includes(version)?30:0),campaignLevels:['1.4.0','1.4.1','1.4.2','1.5.0'].includes(version)?[30,30]:[levelNames.length],mascotLines:dialogue.length,motyaSkins:skins.length,packagedMotyaSprites:spriteFiles.length,editorExcluded:true,packagedMusic:true,webFiles:files.filter(n=>n.startsWith('assets/public/')).length,networkPermission:false,signatureVerified:true,signature};mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/apk-verification.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));

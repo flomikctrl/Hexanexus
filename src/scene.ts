@@ -13,6 +13,9 @@ import type {NumberedHint} from './hint-path';
 import {LobbyRotation} from './lobby-rotation';
 import {FrameLoop} from './frame-loop';
 import {createLobbyFigure} from './lobby-figure';
+import {SceneAppearance} from './scene-appearance';
+import type {AppearanceSettings} from './customization';
+import {frameGame} from './game-framing';
 
 const matrix=(m:Mat)=>new T.Matrix4().makeBasis(new T.Vector3(...m[0]),new T.Vector3(...m[1]),new T.Vector3(...m[2]));
 export class Scene {
@@ -42,7 +45,20 @@ export class Scene {
   private listeners=new AbortController();
   private appActive=true;
   private lastFrame=0;
-  constructor(public host:HTMLElement){
+  private appearance=new SceneAppearance();
+  private gameFraming=false;
+  setGameFraming(enabled:boolean){if(this.gameFraming===enabled)return;this.gameFraming=enabled;this.resize();}
+  setAppearance(settings:AppearanceSettings){
+    this.clearHover();this.appearance.cube=settings.cube;this.appearance.background=settings.background;
+    for(const cube of this.objects){if(cube.userData.empty)continue;const a=this.appearance.material(cube.userData.fixed),m=cube.material as T.MeshStandardMaterial;
+      m.color.setHex(a.body);m.emissive.setHex(a.emissive);m.emissiveIntensity=a.emission;m.metalness=a.metalness;m.roughness=a.roughness;m.map=a.map;m.opacity=a.opacity;m.transparent=a.opacity<1;m.needsUpdate=true;cube.userData.emissive=a.emissive;cube.userData.emission=a.emission;
+      ((cube.children[0] as T.LineSegments).material as T.LineBasicMaterial).color.setHex(a.edge);
+      const corners=cube.children[1] as T.InstancedMesh|undefined;if(corners)(corners.material as T.MeshStandardMaterial).color.setHex(a.corner);
+    }
+    if(this.decoration)this.appearance.applyLobby(this.decoration);this.updateBackground();
+  }
+  private updateBackground(){this.scene.background=this.appearance.backdrop(this.menu);(this.scene.fog as T.FogExp2)?.color.set(this.appearance.fogColor(this.menu));}
+  constructor(public host:HTMLElement,settings?:AppearanceSettings){
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;
     this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.65;host.append(this.renderer.domElement);
     this.scene.background=new T.Color('#152e32');this.scene.fog=new T.FogExp2('#152e32',.025);
@@ -64,6 +80,7 @@ export class Scene {
     this.decoration=createLobbyFigure(this.geometry,this.edgeGeometry);this.scene.add(this.decoration);
     const points=new Float32Array(240);for(let i=0;i<points.length;i++)points[i]=(Math.random()-.5)*14;
     const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(points,3));this.sparks=new T.Points(geo,new T.PointsMaterial({color:0xffd88e,size:.025,transparent:true,opacity:.6}));this.scene.add(this.sparks);
+    if(settings)this.setAppearance(settings);
     this.bindInput(this.renderer.domElement);
     this.loop=new FrameLoop(this.frame);document.addEventListener('visibilitychange',()=>this.updateLoop(),{signal:this.listeners.signal});
     this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(host);this.resize();this.updateLoop();
@@ -80,9 +97,9 @@ export class Scene {
     canvas.addEventListener('lostpointercapture',()=>{if(this.lobbyRotation.dragging)this.lobbyRotation.cancel(performance.now());},options);
     window.addEventListener('blur',()=>this.lobbyRotation.cancel(performance.now()),options);
   }
-  resize(){const {width,height}=this.host.getBoundingClientRect();this.mobile=width<768;this.camera.aspect=width/Math.max(height,1);this.camera.fov=T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(20))*Math.max(1,.95/this.camera.aspect)));this.camera.updateProjectionMatrix();this.renderer.getSize(this.hintViewport);if(this.hintViewport.x!==width||this.hintViewport.y!==height)this.renderer.setSize(width,height);}
+  resize(){const {width,height}=this.host.getBoundingClientRect();this.mobile=width<768;frameGame(this.camera,width,height,this.gameFraming&&!this.menu);this.renderer.getSize(this.hintViewport);if(this.hintViewport.x!==width||this.hintViewport.y!==height)this.renderer.setSize(width,height);}
   resetCamera(){const scale=this.menu?1:(this.puzzle?.size??3)/3;this.controls.minDistance=6*scale;this.controls.maxDistance=13*scale;const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6*scale,4.8*scale,7.6*scale);this.controls.update();this.controls.enableDamping=damping;}
-  setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;if(this.hints)this.hints.group.visible=!value&&this.hints.count>0;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.renderer.shadowMap.enabled=!value;const ratio=Math.min(devicePixelRatio,value?1.5:2);if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
+  setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;if(this.appearance)this.updateBackground();this.group.visible=!value;if(this.hints)this.hints.group.visible=!value&&this.hints.count>0;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.renderer.shadowMap.enabled=!value;const ratio=Math.min(devicePixelRatio,value?1.5:2);if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
   setAppActive(active:boolean){this.appActive=active;if(!active)this.cancelInput();this.updateLoop();}
   private updateLoop(){const active=this.appActive&&!document.hidden;this.lobbyRotation.suspend(!active,performance.now());this.lastFrame=0;if(active)this.loop.start();else{this.loop.pause();this.cancelInput();this.lobbyRotation.cancel(performance.now());}}
   setLobbyRegion(bounds:DOMRect|null){
@@ -158,8 +175,8 @@ export class Scene {
       const fixed=p.level.fixed.some(v=>key(v)===key(cell));const placed=p.placed.some(v=>key(v)===key(cell));const available=p.level.available.some(v=>key(v)===key(cell));
       if(!fixed&&!placed&&!available)continue;
       const full=fixed||placed;
-      const appearance=fixed?blockAppearance.fixed:blockAppearance.player;
-      const material=new T.MeshStandardMaterial({color:full?appearance.body:0x7de4c5,metalness:full?.42:.1,roughness:.4,emissive:full?appearance.emissive:0x276b60,emissiveIntensity:full?appearance.emission:.3,transparent:!full,opacity:full?1:showEmpty?.09:0,depthWrite:full});
+      const appearance=this.appearance?.material(fixed)??{...(fixed?blockAppearance.fixed:blockAppearance.player),metalness:.42,roughness:.4,opacity:1,map:null};
+      const material=new T.MeshStandardMaterial({color:full?appearance.body:0x7de4c5,metalness:full?appearance.metalness:.1,roughness:full?appearance.roughness:.4,map:full?appearance.map:null,emissive:full?appearance.emissive:0x276b60,emissiveIntensity:full?appearance.emission:.3,transparent:!full||appearance.opacity<1,opacity:full?appearance.opacity:showEmpty?.09:0,depthWrite:full});
       const cube=new T.Mesh(this.geometry,material);cube.position.set(...cell);cube.castShadow=full;cube.receiveShadow=full;cube.userData={cell,empty:!full,fixed,placed,emissive:material.emissive.getHex(),emission:material.emissiveIntensity};
       const edges=new T.LineSegments(this.edgeGeometry,new T.LineBasicMaterial({color:full?appearance.edge:0x98ebc8,transparent:true,opacity:full?.55:.4,depthTest:true,depthWrite:false}));edges.visible=full||showEmpty&&(this.editing||p.canPlace(cell));cube.add(edges);
       if(!full&&!this.editing&&!p.canPlace(cell))material.opacity=0;
@@ -210,6 +227,6 @@ export class Scene {
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     this.scene.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments||o instanceof T.Points){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);if(o instanceof T.InstancedMesh)o.dispose();}});
     geometries.add(this.geometry);geometries.add(this.edgeGeometry);geometries.add(this.cornerGeometry);this.scene.traverse(o=>{if(o instanceof T.Light)(o as T.DirectionalLight).shadow?.map?.dispose();});
-    geometries.forEach(g=>g.dispose());materials.forEach(m=>{const map=(m as T.MeshBasicMaterial).map;map?.dispose();m.dispose();});this.renderer.dispose();this.renderer.domElement.remove();
+    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());this.appearance.dispose();this.renderer.dispose();this.renderer.domElement.remove();
   }
 }

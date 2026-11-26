@@ -13,21 +13,22 @@ export class PlayerProfileUI {
  private visible=false;
  private unsubscribe:()=>void;
  private events=new AbortController();
- constructor(private economy:Economy,private sources:ProfileSources,open:()=>void,back:()=>void,achievementsRoute:()=>void){
+ constructor(private economy:Economy,private sources:ProfileSources,open:()=>void,back:()=>void,achievementsRoute:()=>void,private wardrobeRoute:()=>void=()=>{}){
   const placeholder=document.querySelector('.lobby-profile')!,avatar=document.createElement('button');avatar.id='open-profile';avatar.className='lobby-profile player-avatar';avatar.type='button';avatar.title='Мой профиль';avatar.setAttribute('aria-label','Открыть мой профиль');
   avatar.innerHTML='<img draggable="false" alt="Аватарка игрока">';avatar.onclick=open;placeholder.replaceWith(avatar);
   this.host.id='profile-screen';this.host.className='screen collection-screen';this.host.hidden=true;this.host.setAttribute('aria-labelledby','profile-title');
-  this.host.innerHTML=`<header class="collection-heading"><div><small>ВАШ УГОЛОК В МАСТЕРСКОЙ</small><h2 id="profile-title">Мой профиль</h2></div><button id="profile-back">← Меню</button></header><section class="profile-hero"><button id="profile-avatar" class="player-avatar" title="Выбрать аватарку" aria-label="Изменить аватарку"><img draggable="false" alt="Аватарка игрока"></button><div class="profile-identity"><h3 id="profile-name"></h3><p id="profile-rank"></p><button id="profile-edit-name">Изменить имя</button></div></section><p id="profile-wallet"></p><div id="profile-statistics" class="profile-statistics"></div><div class="profile-customize"><button id="profile-edit-avatar">Аватарка и эмоция</button><button id="profile-edit-title">Выбрать звание</button><button id="profile-edit-frame">Рамка аватарки</button></div><p class="profile-future">Кампании · 60 уровней</p><p id="profile-status" role="status"></p>`;
+  this.host.innerHTML=`<header class="collection-heading"><h2 id="profile-title">Мой профиль</h2><button id="profile-back">Меню</button></header><section class="profile-hero"><button id="profile-avatar" class="player-avatar" title="Выбрать аватарку" aria-label="Изменить аватарку"><img draggable="false" alt="Аватарка игрока"></button><div class="profile-identity"><div class="profile-name-row"><h3 id="profile-name"></h3><button id="profile-edit-name" aria-label="Изменить имя" title="Изменить имя">Имя</button></div><p id="profile-rank"></p><p id="profile-wallet"></p></div></section><div id="profile-statistics" class="profile-statistics"></div><button id="profile-customize" class="profile-customize">Оформление профиля</button><p id="profile-status" role="status"></p>`;
   this.dialog.id='profile-editor';this.dialog.className='profile-editor';this.dialog.setAttribute('aria-labelledby','profile-editor-title');
   this.dialog.innerHTML='<header class="collection-heading"><h2 id="profile-editor-title"></h2><button id="profile-editor-close" aria-label="Закрыть редактор">✕</button></header><form id="profile-form"><div id="profile-editor-content"></div><p id="profile-edit-error" role="status" aria-live="polite"></p><div class="profile-editor-actions"><button id="profile-save" class="primary" type="submit">Сохранить</button><button id="profile-cancel" type="button">Отмена</button></div></form>';
   document.getElementById('app')!.append(this.host,this.dialog);
   this.el<HTMLButtonElement>('profile-back').onclick=back;
-  for(const kind of ['name','avatar','title','frame'] as const)this.el<HTMLButtonElement>('profile-edit-'+kind).onclick=()=>this.edit(kind);
+  this.el<HTMLButtonElement>('profile-edit-name').onclick=()=>this.edit('name');
+  this.el<HTMLButtonElement>('profile-customize').onclick=()=>this.details('customize');
   this.el<HTMLButtonElement>('profile-avatar').onclick=()=>this.edit('avatar');
   for(const id of ['profile-editor-close','profile-cancel'])this.el<HTMLButtonElement>(id).onclick=()=>this.closeEditor();
   this.dialog.addEventListener('cancel',event=>{event.preventDefault();this.closeEditor();},{signal:this.events.signal});
   this.dialog.addEventListener('close',()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();},{signal:this.events.signal});
-  this.host.addEventListener('click',event=>{if((event.target as HTMLElement).closest('#profile-achievements'))achievementsRoute();},{signal:this.events.signal});
+  this.host.addEventListener('click',event=>{const target=event.target as HTMLElement;if(target.closest('#profile-achievements'))achievementsRoute();if(target.closest('#profile-collection'))this.wardrobeRoute();},{signal:this.events.signal});
   this.unsubscribe=economy.subscribe(()=>this.refresh());this.refresh();
  }
  private el<T extends HTMLElement=HTMLElement>(id:string){return document.getElementById(id) as T;}
@@ -40,21 +41,30 @@ export class PlayerProfileUI {
   this.el('open-profile').setAttribute('aria-label',`Мой профиль: ${p.name}`);
   if(!this.visible)return;
   this.el('profile-name').textContent=p.name;this.el('profile-rank').textContent=profileTitles.find(t=>t.id===p.title)!.name;
-  this.el('profile-wallet').textContent=this.economy.ready?hexics(this.economy.balance):'Гексики недоступны';
+  this.el('profile-wallet').textContent=this.economy.ready?this.economy.balance.toLocaleString('ru-RU'):'Недоступно';
+  this.el('profile-wallet').setAttribute('aria-label',hexics(this.economy.balance));
   const campaign=campaignProfileStats(this.sources.completed()),arcade=arcadeProfileStats(this.sources.records()),owned=motyaSkins.filter(s=>this.sources.canUse(s.id)).length;
-  this.el('profile-statistics').innerHTML=`<article class="profile-stat-card profile-campaign"><h3>${campaign.name}</h3><div class="profile-stat-line"><strong data-profile-stat="campaign">${campaign.completed}/${campaign.total}</strong><span>${campaign.percent}% пройдено</span></div><progress value="${campaign.completed}" max="${campaign.total}" aria-label="Пройдено ${campaign.completed} из ${campaign.total}"></progress></article><article class="profile-stat-card"><h3>Бесконечный режим</h3><dl><div><dt>Решено за партию</dt><dd data-profile-stat="solved">${arcade.solved}</dd></div><div><dt>Рекорд очков</dt><dd data-profile-stat="score">${arcade.score.toLocaleString('ru-RU')}</dd></div><div><dt>Лучшая серия</dt><dd data-profile-stat="streak">${arcade.streak}</dd></div></dl></article><article class="profile-stat-card"><h3>Коллекция Моти</h3><dl><div><dt>Открыто нарядов</dt><dd data-profile-stat="skins">${owned}/${motyaSkins.length}</dd></div><div><dt>Из подарков</dt><dd data-profile-stat="gifts">${this.economy.gifts.owned.length}/${giftSkinIds.length}</dd></div></dl><p id="profile-worn"></p></article><article class="profile-stat-card"><h3>Достижения</h3><div class="profile-stat-line"><strong data-profile-stat="achievements">${this.economy.snapshot.achievements.length}/${achievements.length}</strong><span>получено</span></div><button id="profile-achievements">Посмотреть достижения →</button></article>`;
+  const second=campaignProfileStats(this.sources.completedSecond?.()??[],'second');
+  this.el('profile-statistics').innerHTML=`<article class="profile-stat-card profile-campaign"><h3>Кампании</h3>${[campaign,second].map((c,i)=>`<div class="profile-campaign-row"><span>${i?'4×4×4':'3×3×3'}</span><progress value="${c.completed}" max="${c.total}" aria-label="${i?'Новая грань':'Первые силуэты'}: ${c.completed} из ${c.total}"></progress><strong data-profile-stat="${i?'campaign2':'campaign'}">${c.completed}/${c.total}</strong></div>`).join('')}</article><article class="profile-stat-card profile-arcade"><h3>Бесконечный режим</h3><dl><div><dt>Решено за партию</dt><dd data-profile-stat="solved">${arcade.solved}</dd></div><div><dt>Рекорд очков</dt><dd data-profile-stat="score">${arcade.score.toLocaleString('ru-RU')}</dd></div><div><dt>Лучшая серия</dt><dd data-profile-stat="streak">${arcade.streak}</dd></div></dl></article><article class="profile-stat-card profile-achievement-card"><h3>Достижения</h3><strong data-profile-stat="achievements">${this.economy.snapshot.achievements.length}/${achievements.length}</strong><button id="profile-achievements">Посмотреть</button></article><button id="profile-collection" class="profile-stat-card profile-collection"><span>Коллекция Моти <strong data-profile-stat="skins">${owned}/${motyaSkins.length}</strong></span><span>Из подарков <b data-profile-stat="gifts">${this.economy.gifts.owned.length}/${giftSkinIds.length}</b></span><span id="profile-worn"></span></button>`;
   this.el('profile-worn').textContent='В игре: '+skinById(this.sources.worn()).name;
-  const second=campaignProfileStats(this.sources.completedSecond?.()??[],'second'),locked=campaign.completed<30;
-  this.el('profile-statistics').insertAdjacentHTML('beforeend',`<article class="profile-stat-card profile-second-campaign"><h3>${second.name} · Новая грань</h3><div class="profile-stat-line"><strong data-profile-stat="campaign2">${second.completed}/30</strong><span>${second.percent}% пройдено</span></div><progress value="${second.completed}" max="30" aria-label="Пройдено ${second.completed} из 30"></progress>${locked?'<p>🔒 Пройдите 30 уровней первой кампании</p>':''}</article>`);
-  const future=this.host.querySelector('.profile-future')!;future.className='profile-future profile-campaign-total';future.textContent=`Общий прогресс: ${campaign.completed+second.completed}/60`;
-  this.el('profile-status').textContent=this.economy.ready?'Все настройки хранятся только на этом устройстве.':'Профиль временно недоступен: '+this.economy.error;
-  this.host.querySelectorAll<HTMLButtonElement>('.profile-customize button,#profile-edit-name,#profile-avatar').forEach(b=>b.disabled=!this.economy.ready);
+  this.el('profile-status').textContent=this.economy.ready?'':'Профиль временно недоступен: '+this.economy.error;
+  this.host.querySelectorAll<HTMLButtonElement>('#profile-customize,#profile-edit-name,#profile-avatar').forEach(b=>b.disabled=!this.economy.ready);
+ }
+ private details(kind:'customize'){
+  if(!this.economy.ready||this.dialog.open)return;
+  this.dialog.dataset.kind=kind;this.el('profile-editor-title').textContent='Оформление профиля';
+  this.el('profile-editor-content').innerHTML='<nav class="profile-options" aria-label="Оформление профиля"><button type="button" id="profile-edit-avatar">Аватар и эмоция</button><button type="button" id="profile-edit-title">Звание</button><button type="button" id="profile-edit-frame">Рамка</button></nav>';
+  this.el('profile-edit-error').textContent='';this.el('profile-save').hidden=true;this.el('profile-cancel').textContent='Готово';
+  this.el<HTMLFormElement>('profile-form').onsubmit=event=>event.preventDefault();
+  for(const item of ['avatar','title','frame'] as const)this.el('profile-edit-'+item).onclick=()=>{this.closeEditor();this.edit(item);};
+  this.dialog.showModal();
  }
  closeEditor(){if(!this.dialog.open)return false;if(document.activeElement instanceof HTMLElement)document.activeElement.blur();this.dialog.close();return true;}
  private edit(kind:'name'|'avatar'|'title'|'frame'){
   if(!this.economy.ready||this.dialog.open)return;
   const p=this.economy.profile,content=this.el('profile-editor-content'),error=this.el('profile-edit-error'),save=this.el<HTMLButtonElement>('profile-save');
   content.replaceChildren();error.textContent='';save.disabled=false;this.dialog.dataset.kind=kind;
+  save.hidden=false;this.el('profile-cancel').textContent='Отмена';
   this.el('profile-editor-title').textContent={name:'Имя игрока',avatar:'Аватарка Моти',title:'Звание',frame:'Рамка аватарки'}[kind];
   let commit:()=>boolean;
   if(kind==='name'){

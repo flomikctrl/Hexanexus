@@ -38,7 +38,7 @@ export class EconomyUI {
   clearTimeout(this.timer);const dialog=document.querySelector<HTMLDialogElement>('#victory[open],#campaign-complete[open]'),screen=document.body.dataset.screen;
   this.notice.classList.toggle('economy-notice-inline',!!dialog||screen==='home'||screen==='achievements');
   if(dialog)dialog.insertBefore(this.notice,dialog.querySelector(':scope > button'));
-  else if(screen==='home')document.getElementById('progress-summary')!.after(this.notice);
+  else if(screen==='home')document.querySelector('#home .home-actions')!.after(this.notice);
   else if(screen==='achievements')document.querySelector('#achievements-screen .collection-heading')!.after(this.notice);
   else document.body.append(this.notice);
   this.notice.textContent=text;this.notice.hidden=false;this.timer=setTimeout(()=>{this.notice.hidden=true;},4800);

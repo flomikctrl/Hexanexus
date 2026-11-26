@@ -1,5 +1,8 @@
+import {VictorySound} from './victory-sound';
 export class BackgroundMusic {
   private audio=new Audio('/audio/silhouette-loop.wav');
+  private chime=new VictorySound();
+  private duckTimer:ReturnType<typeof setTimeout>|undefined;
   private enabled=true;
   private volume=.15;
   private unlocked=false;
@@ -13,18 +16,20 @@ export class BackgroundMusic {
     this.audio.loop=true;this.audio.preload='none';this.audio.volume=this.volume;
     this.audio.hidden=true;document.body.append(this.audio);
     // Invoke play synchronously from a real gesture, then retry if autoplay is blocked.
-    const unlock=()=>{this.unlocked=true;void this.play();};
+    const unlock=()=>{this.unlocked=true;void this.chime.unlock();void this.play();};
     document.addEventListener('pointerdown',unlock,{passive:true});
     document.addEventListener('keydown',unlock);
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)this.audio.pause();else void this.play();});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){this.audio.pause();this.stopVictory();}else void this.play();});
     this.audio.addEventListener('error',()=>{this.failed=true;this.refresh();});
   }
+  victory(){if(!this.enabled||!this.unlocked||document.hidden||this.volume===0||this.duckTimer)return;this.audio.volume=this.volume*.08;void this.chime.play(this.volume);this.duckTimer=setTimeout(()=>{this.duckTimer=undefined;this.audio.volume=this.volume;},1600);}
+  stopVictory(){clearTimeout(this.duckTimer);this.duckTimer=undefined;this.chime.stop();this.audio.volume=this.volume;}
   mount(host:HTMLElement){
     const row=document.createElement('div');row.className='music-settings';
     row.innerHTML='<button type="button" class="music-toggle"></button><label>Громкость<input class="music-volume" type="range" min="0" max="0.4" step="0.05" aria-label="Громкость фоновой музыки"></label>';
     row.querySelector<HTMLButtonElement>('button')!.onclick=()=>{
       this.enabled=!this.enabled;this.unlocked=true;this.save();
-      if(this.enabled)void this.play();else this.audio.pause();this.refresh();
+      if(this.enabled)void this.play();else{this.audio.pause();this.stopVictory();}this.refresh();
     };
     row.querySelector<HTMLInputElement>('input')!.oninput=e=>{this.volume=Number((e.target as HTMLInputElement).value);this.audio.volume=this.volume;this.save();this.refresh();};
     this.controls.push(row);host.append(row);this.refresh();

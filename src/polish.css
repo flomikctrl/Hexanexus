@@ -1,0 +1,22 @@
+:root{background:#102b2d;color:#e4e9dc;font-family:'Segoe UI',sans-serif}
+body[data-screen=home]{background:radial-gradient(ellipse at 50% 42%,#1b3838,#0d2428 76%)}
+#home.home-lobby{grid-template-areas:'top' 'brand' 'stage' 'actions';grid-template-rows:auto auto minmax(90px,1fr) auto;gap:10px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+#home.home-lobby .lobby-brand h1{font-size:clamp(33px,4.2vw,47px)}
+#home.home-lobby .home-actions{grid-template-columns:1fr;max-width:460px;gap:8px}
+#home.home-lobby .home-actions>button{min-height:46px;justify-content:center;text-align:center;background:linear-gradient(120deg,#244238,#17362f);border-color:#9bb29b40;font-size:15px;padding:10px 16px}
+#home.home-lobby .home-actions>#play{min-height:64px;font-size:18px;background:linear-gradient(120deg,#8e7347,#665d3e);border-color:#d5ba7c99}
+#home.home-lobby .home-actions>button::after,#home.home-lobby .home-actions>button:not(#play)::after{content:none}
+#home.home-lobby .home-wallet [data-wallet-unit]{display:none}
+#home.home-lobby .home-wallet{font-size:15px}
+#home.home-lobby .economy-notice-inline{position:absolute;bottom:calc(190px + env(safe-area-inset-bottom,0px));left:16px;right:16px;width:auto;pointer-events:none}
+.motya:not(.motya--wardrobe):not(.motya--dialog){filter:drop-shadow(0 7px 5px #041b26a0)}
+.collection-heading h2,.page-heading h2{font-family:'Segoe UI',sans-serif;font-weight:500;font-size:24px}
+.page-heading small,#game-kicker,.achievement-intro{display:none}
+.page-heading{margin-bottom:18px}.page-heading h2{margin-top:0}
+#level-screen .screen-note{margin-top:16px}#level-cards{margin-top:18px}
+.collection-heading small{display:none}
+#control-note{display:none}
+body[data-celebrating=true] .game-footer button,body[data-celebrating=true] #menu{pointer-events:none;opacity:.6}
+body[data-celebrating=true] #world{pointer-events:none}
+@media(min-width:900px){#home.home-lobby{grid-template-areas:'top top' 'brand stage' 'actions stage';grid-template-columns:1fr 1.3fr;grid-template-rows:auto auto 1fr;gap:20px 32px;align-items:center}#home.home-lobby .lobby-brand{align-self:end}#home.home-lobby .home-actions{align-self:start}#lobby-stage{height:65dvh;align-self:center}}
+@media(max-height:500px) and (orientation:landscape){#home.home-lobby{grid-template-areas:'top top' 'brand stage' 'actions stage';grid-template-columns:minmax(240px,.9fr) 1.1fr;grid-template-rows:44px auto 1fr;gap:6px 16px}#home.home-lobby .home-actions{gap:5px}#home.home-lobby .home-actions>button{min-height:44px;font-size:13px;padding:6px 12px}#home.home-lobby .home-actions>#play{min-height:58px;font-size:16px}#home.home-lobby .lobby-brand h1{font-size:28px}}

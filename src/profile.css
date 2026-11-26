@@ -7,3 +7,29 @@ button.lobby-profile.player-avatar{padding:0;border-radius:50%;overflow:hidden;f
 
 /* Keep save/cancel reachable while the portrait grid scrolls. */
 .profile-editor[open]{display:flex;flex-direction:column;overflow:hidden}.profile-editor>.collection-heading{flex-shrink:0}.profile-editor #profile-form{display:flex;flex-direction:column;min-height:0}.profile-editor #profile-editor-content{overflow-y:auto;min-height:0;overscroll-behavior:contain}.profile-editor-actions,#profile-edit-error{flex-shrink:0}
+
+/* Overview is a short dashboard; long choices live in the separate editor. */
+#profile-screen{width:100%;max-width:640px;min-height:100dvh;display:flex;flex-direction:column;gap:12px;padding:calc(14px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-left,0px)) calc(14px + env(safe-area-inset-bottom,0px));background:#102d2a}
+#profile-screen>.collection-heading{margin:0;min-height:44px;gap:8px}#profile-screen>.collection-heading h2{font:500 23px 'Segoe UI',sans-serif}
+#profile-screen .profile-hero{padding:0;gap:14px;min-height:88px}#profile-screen #profile-avatar{width:80px;height:80px;flex:0 0 80px}
+.profile-name-row{display:flex;gap:8px;align-items:center;justify-content:space-between}.profile-identity{flex:1;min-width:0}
+#profile-screen .profile-identity h3{font:500 21px 'Segoe UI',sans-serif;line-height:1.15;overflow-wrap:anywhere}
+#profile-screen .profile-identity p{margin:4px 0;font-size:13px;line-height:1.3}
+#profile-screen #profile-edit-name{min-height:44px;padding:6px 9px;font-size:12px;flex-shrink:0}
+#profile-screen #profile-wallet{display:table;padding-left:25px;margin:6px 0 0;min-height:21px;line-height:21px;font-size:15px;background-size:19px;color:#e8ce91}
+#profile-screen .profile-statistics{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px}
+#profile-screen .profile-stat-card{padding:12px;border:1px solid #adc6a72c;border-radius:14px;background:linear-gradient(130deg,#24473b,#16372f);min-width:0}
+#profile-screen .profile-stat-card h3{font:500 14px 'Segoe UI',sans-serif;line-height:1.3;margin:0 0 10px;color:#ddd9bd}
+#profile-screen .profile-campaign{grid-column:1/-1}.profile-campaign-row{display:grid;grid-template-columns:54px minmax(0,1fr) 48px;align-items:center;gap:10px;min-height:28px;font-size:13px}.profile-campaign-row strong{text-align:right;color:#e6ce92;font-weight:500}
+#profile-screen progress{margin:0;height:6px}
+#profile-screen .profile-stat-card dl{gap:10px}#profile-screen .profile-stat-card dl>div{font-size:12px;gap:5px;align-items:center}#profile-screen .profile-stat-card dt{line-height:1.25}#profile-screen .profile-stat-card dd{font-size:14px}
+.profile-achievement-card{display:flex;flex-direction:column}.profile-achievement-card>strong{font-size:23px;font-weight:500;color:#e6ce92;line-height:1.2}
+#profile-screen #profile-achievements{min-height:44px;margin:10px 0 0;font-size:12px;padding:7px 9px}
+#profile-screen .profile-collection{grid-column:1/-1;width:100%;text-align:left;display:grid;grid-template-columns:1fr auto;gap:6px 10px;min-height:76px;font-size:13px}
+.profile-collection>span:first-child{color:#e3ddbd}.profile-collection strong,.profile-collection b{font-weight:500;color:#e6ce92}.profile-collection>span:nth-child(2){font-size:12px;color:#b3c5b5}#profile-worn{grid-column:1/-1;font-size:12px;line-height:1.4;color:#b9cdbd;overflow-wrap:anywhere}
+#profile-screen .profile-customize{display:block;grid-template-columns:none;margin:0;min-height:46px;padding:10px 16px;border-radius:12px;font-size:14px;text-align:center;width:100%;background:#28483b;border-color:#c8b47b70}
+#profile-status:empty{display:none}#profile-screen #profile-status{margin:0;font-size:12px}
+@media(min-height:760px){#profile-screen{gap:16px;padding-top:calc(20px + env(safe-area-inset-top,0px))}#profile-screen .profile-stat-card{padding:15px}#profile-screen .profile-hero{min-height:100px}}
+@media(max-height:600px) and (orientation:portrait){#profile-screen{gap:8px;padding-top:calc(8px + env(safe-area-inset-top,0px));padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}#profile-screen .profile-stat-card{padding:10px}#profile-screen .profile-hero{min-height:70px}#profile-screen #profile-avatar{width:64px;height:64px;flex-basis:64px}}
+@media(max-height:700px) and (orientation:portrait){#profile-screen{gap:8px}#profile-screen .profile-identity{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px}#profile-screen .profile-name-row{display:contents}#profile-screen #profile-name{grid-column:1/-1;grid-row:1}#profile-screen #profile-edit-name{grid-column:2;grid-row:2/4;align-self:center}#profile-screen #profile-rank{grid-column:1;grid-row:2}#profile-screen #profile-wallet{grid-column:1;grid-row:3}}
+@media(max-height:500px) and (orientation:landscape){#profile-screen{max-width:1000px;display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.5fr);gap:10px 18px;align-content:center}#profile-screen>.collection-heading{grid-column:1;grid-row:1}#profile-screen .profile-hero{grid-column:1;grid-row:2}#profile-screen .profile-statistics{grid-column:2;grid-row:1/4;gap:6px}#profile-screen .profile-stat-card{padding:8px 10px}#profile-screen .profile-stat-card h3{margin-bottom:6px}#profile-screen .profile-customize{grid-column:1;grid-row:3}#profile-screen .profile-collection{min-height:60px}}

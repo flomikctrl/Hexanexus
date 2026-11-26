@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {skinIds,motyaSkins,skinStorageKey,skinById,readMotyaSkin,saveMotyaSkin,motyaCollection,skinSprite} from './motya-skins';
-import {PhoebeController,readPhoebeSetting} from './phoebe-state';
+import {PhoebeController} from './phoebe-state';
 import {PhoebeSpriteSwitcher} from './phoebe-sprite';
 
 describe('Мотя: оригинальные образы и безопасное сохранение',()=>{
@@ -22,7 +22,7 @@ describe('Мотя: оригинальные образы и безопасно�
     const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>data.set(key,value)};
     for(const id of skinIds.filter(id=>id!=='royal')){expect(saveMotyaSkin(storage,id,false,skinIds)).toBe(true);expect(readMotyaSkin(storage,false,skinIds)).toBe(id);}
     expect(data.size).toBe(4);expect(data.get(skinStorageKey)).toBe('archdemon');
-    expect(data.get('hexanexus.progress.v2')).toBe('old-progress');expect(data.get('hexanexus.music')).toBe('old-music');expect(readPhoebeSetting(storage)).toBe(false);
+    expect(data.get('hexanexus.progress.v2')).toBe('old-progress');expect(data.get('hexanexus.music')).toBe('old-music');expect(data.get('hexanexus.phoebe.enabled')).toBe('false');
     expect(saveMotyaSkin({setItem:()=>{throw Error('denied');}},'winter')).toBe(false);
   });
   it.each(skinIds)('%s содержит три разных прозрачных PNG с единым холстом',id=>{

@@ -1,5 +1,5 @@
 import './lobby.css';
-import {economyRewards,giftPrice,hintPrice,hexics} from './economy';
+import {economyRewards,giftPrice,hintPrice} from './economy';
 import type {Scene} from './scene';
 
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -10,20 +10,37 @@ export class Lobby {
  private exitNote=document.createElement('div');
  private exitTimer:ReturnType<typeof setTimeout>|undefined;
  constructor(private view:Scene){
-  const home=el('home'),actions=home.querySelector<HTMLElement>('.home-actions')!,title=home.querySelector('h1')!,version=el('home-version'),progress=el('progress-summary');
+  const home=el('home'),actions=home.querySelector<HTMLElement>('.home-actions')!,title=home.querySelector('h1')!;
   const oldWallet=home.querySelector<HTMLElement>('.home-wallet')!,wallet=document.createElement('button');
   wallet.id='wallet-info';wallet.className='home-wallet';wallet.type='button';wallet.title='Как получить гексики?';wallet.setAttribute('aria-haspopup','dialog');wallet.setAttribute('aria-controls','currency-help');wallet.append(...Array.from(oldWallet.childNodes));
   const top=document.createElement('header');top.className='lobby-top';top.innerHTML='<div class="lobby-profile" role="img" aria-label="Место для будущей аватарки" title="Ваш уголок в мастерской"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="m20 2 15.6 9v18L20 38 4.4 29V11z" fill="none" stroke="currentColor"/><circle cx="20" cy="15" r="5" fill="currentColor" opacity=".8"/><path d="M10 30c0-9 20-9 20 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div><div class="lobby-top-actions"></div>';
   const toggle=document.createElement('button');toggle.id='lobby-menu-toggle';toggle.type='button';toggle.textContent='≡';toggle.title='Меню';toggle.setAttribute('aria-label','Дополнительное меню');toggle.setAttribute('aria-haspopup','dialog');toggle.setAttribute('aria-controls','lobby-menu');top.lastElementChild!.append(wallet,toggle);
-  const brand=document.createElement('div');brand.className='lobby-brand';brand.innerHTML='<small>МАСТЕРСКАЯ СИЛУЭТОВ</small>';brand.append(title);brand.insertAdjacentHTML('beforeend','<p>Одна конструкция. Два силуэта.</p>');
-  this.region=document.createElement('div');this.region.id='lobby-stage';this.region.setAttribute('aria-hidden','true');this.region.innerHTML='<span class="lobby-gesture-note">Потяните фигуру, чтобы повернуть</span>';
-  const foot=document.createElement('footer');foot.className='lobby-foot';foot.append(version,progress);
+  const brand=document.createElement('div');brand.className='lobby-brand';brand.append(title);
+  const version=document.createElement('small');version.id='home-version';version.textContent=`v${import.meta.env.VITE_APP_VERSION}`;brand.append(version);
+  this.region=document.createElement('div');this.region.id='lobby-stage';this.region.setAttribute('aria-hidden','true');
   const menu=document.createElement('dialog');menu.id='lobby-menu';menu.className='lobby-dialog';menu.setAttribute('aria-labelledby','lobby-menu-title');menu.innerHTML='<div class="collection-heading"><h2 id="lobby-menu-title">Меню</h2><button id="lobby-menu-close" aria-label="Закрыть меню">✕</button></div><nav class="lobby-menu-items" aria-label="Разделы игры"></nav>';
   for(const id of ['choose-level','open-achievements','open-settings']){const button=el(id);button.addEventListener('click',()=>menu.close(),{capture:true});menu.querySelector('nav')!.append(button);}
   el('open-wardrobe').textContent='Костюмы и подарки';
-  home.classList.add('home-lobby');home.replaceChildren(top,brand,this.region,actions,foot);el('app').append(menu);
+  home.classList.add('home-lobby');home.replaceChildren(top,brand,this.region,actions);el('app').append(menu);
+  el('play').textContent='Кампания';
   this.exitNote.id='lobby-exit-note';this.exitNote.hidden=true;this.exitNote.setAttribute('role','status');home.append(this.exitNote);
-  el('app').insertAdjacentHTML('beforeend',`<dialog id="currency-help" class="lobby-dialog" aria-labelledby="currency-help-title"><div class="collection-heading"><h2 id="currency-help-title">Как получить гексики?</h2><button id="currency-help-close" aria-label="Закрыть информацию о гексиках">✕</button></div><h3>Зарабатывайте во время игры</h3><ul><li>Первое прохождение уровня кампании: <strong>+${hexics(economyRewards.campaignLevel)}</strong>.</li><li>Каждый успешно решённый раунд бесконечного режима: <strong>+${hexics(economyRewards.arcadeRound)}</strong>.</li><li>Достижения: дополнительные одноразовые награды.</li><li>Стартовый бонус нового игрока: <strong>+${hexics(economyRewards.starter)}</strong>.</li></ul><p class="currency-key-point">В бесконечном режиме гексики начисляются за каждый решённый раунд в каждой партии, даже без нового рекорда.</p><h3>На что можно потратить</h3><ul><li>Первая подсказка на каждом уровне бесплатная один раз.</li><li>Последующие подсказки: <strong>${hexics(hintPrice)}</strong>.</li><li>Подарки Моти: <strong>${hexics(giftPrice)}</strong> — один новый наряд без повторов.</li></ul><button id="currency-help-done" class="primary">Понятно</button></dialog>`);
+  el('app').insertAdjacentHTML('beforeend',`<dialog id="currency-help" class="lobby-dialog" aria-labelledby="currency-help-title" aria-describedby="currency-help-intro">
+   <div class="collection-heading"><h2 id="currency-help-title"><img src="/icons/hexic.svg" alt="">Гексики</h2><button id="currency-help-close" aria-label="Закрыть информацию о гексиках">✕</button></div>
+   <div class="currency-help-content">
+    <p id="currency-help-intro">Зарабатывай гексики за уровни, раунды и достижения</p>
+    <section aria-labelledby="currency-earn"><h3 id="currency-earn">Как заработать</h3><ul class="currency-rows">
+     <li><span>Кампания I<small>Первое прохождение уровня</small></span><strong>+${economyRewards.campaignLevel}</strong></li>
+     <li><span>Кампания II<small>Первое прохождение уровня</small></span><strong>+50</strong></li>
+     <li><span>Бесконечный режим<small>За каждый решённый раунд</small></span><strong>+${economyRewards.arcadeRound}</strong></li>
+     <li><span>Достижения</span><span class="currency-detail">Доп. награды</span></li>
+     <li><span>Стартовый бонус</span><strong>${economyRewards.starter}</strong></li>
+    </ul></section>
+    <section aria-labelledby="currency-spend"><h3 id="currency-spend">Куда потратить</h3><ul class="currency-rows">
+     <li><span>Подарок Моти</span><strong>${giftPrice}</strong></li>
+     <li><span>Повторная подсказка</span><strong>${hintPrice}</strong></li>
+    </ul><p class="currency-free-hint">Первая подсказка на каждом уровне бесплатна один раз.</p></section>
+   </div><button id="currency-help-done" class="primary">Понятно</button>
+  </dialog>`);
   toggle.onclick=()=>menu.showModal();el('lobby-menu-close').onclick=()=>menu.close();
   wallet.onclick=()=>el<HTMLDialogElement>('currency-help').showModal();
   for(const id of ['currency-help-close','currency-help-done'])el(id).onclick=()=>el<HTMLDialogElement>('currency-help').close();

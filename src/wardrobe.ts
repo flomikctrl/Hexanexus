@@ -22,6 +22,9 @@ export class MotyaWardrobe {
     const heading=this.host.firstElementChild!;heading.querySelector('h2')!.textContent='Мастерская Моти';
     const panel=document.createElement('div');panel.id='wardrobe-panel';panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','wardrobe-tab');
     while(heading.nextSibling)panel.append(heading.nextSibling);
+    const content=document.createElement('div');content.className='wardrobe-content';
+    while(panel.firstChild&&panel.firstChild!==equip)content.append(panel.firstChild);
+    panel.prepend(content);
     const tabs=document.createElement('div');tabs.id='workshop-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Мастерская Моти');tabs.innerHTML='<button id="wardrobe-tab" role="tab" aria-controls="wardrobe-panel">Костюмы</button><button id="gifts-tab" role="tab" aria-controls="gifts-panel">Подарки</button>';
     const gifts=document.createElement('div');gifts.id='gifts-panel';gifts.hidden=true;gifts.className='gift-placeholder';gifts.setAttribute('role','tabpanel');gifts.setAttribute('aria-labelledby','gifts-tab');
     this.host.append(tabs,panel,gifts);

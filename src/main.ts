@@ -28,9 +28,13 @@ import {App} from '@capacitor/app';
 import {Capacitor} from '@capacitor/core';
 import {PlayerProfileUI} from './profile-ui';
 import {readArcadeRecords} from './arcade';
+import './polish.css';
+import {Onboarding,learningSteps} from './onboarding';
+import './onboarding.css';
+import {CompletionDelay} from './completion';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
-<main id="home" class="screen"><div class="home-copy"><span class="eyebrow">ПРОСТРАНСТВЕННАЯ ГОЛОВОЛОМКА</span><h1>Гексанексус</h1><p class="subtitle">Мастерская силуэтов</p><div class="gold-rule"></div><p class="intro">Одна конструкция. Два силуэта.<br>Найдите форму, которая объединит их.</p><div class="home-actions"><button id="play" class="primary">Кампания <span aria-hidden="true">→</span></button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Костюмы и подарки</button><button id="open-settings">Настройки</button></div><small id="progress-summary"></small></div><div class="home-signature"><span id="home-version"></span><span class="home-motto">✦ &nbsp; ФОРМА · СВЕТ · РАВНОВЕСИЕ</span></div></main>
+<main id="home" class="screen"><div class="home-copy"><h1>Гексанексус</h1><div class="home-actions"><button id="play" class="primary">Кампания</button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Костюмы и подарки</button><button id="open-settings">Настройки</button></div></div></main>
 <section id="level-screen" class="screen" hidden><div class="page-heading"><div><small>МАСТЕРСКАЯ СИЛУЭТОВ</small><h2>Выберите испытание</h2></div><button id="levels-back">← Главное меню</button></div><div id="level-cards"></div><p class="screen-note">Все испытания доступны. Прогресс сохраняется в этом браузере.</p></section>
 <section id="game-screen" hidden><header class="game-header"><div><small id="game-kicker">МАСТЕРСКАЯ СИЛУЭТОВ</small><h2 id="level-name"></h2></div><div class="game-status"><div class="inventory"><strong id="remaining"></strong><span>кубиков<br>в запасе</span></div><button id="menu" title="Открыть меню игры">☰ <span>Меню</span></button></div></header>
 <div id="projection-help" hidden>Золотые стрелки — направления двух проекций.<br><span class="correct">✓ Совпало</span> · <span class="missing">+ Нужен кубик</span> · <span class="excess">− Лишний</span> · тёмный — пусто</div>
@@ -39,7 +43,6 @@ document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 </section>
 <dialog id="settings" aria-labelledby="settings-title"><div class="collection-heading"><h2 id="settings-title">Настройки</h2><button id="settings-close" aria-label="Закрыть настройки">✕</button></div><div id="music-settings"></div><div id="mascot-settings"></div><button id="how-to">Как играть</button></dialog>
 <dialog id="pause"><small>ГЕКСАНЕКСУС</small><h2>Пауза</h2><button id="resume" class="primary">Продолжить</button><button id="camera-reset" title="Вернуть только камеру, сохранив кубики">Сбросить ракурс</button><button id="pause-help">Как играть</button><label class="mode-label">Силуэты<select id="projection-mode"><option value="normal">Только целевые картинки</option><option value="training">Обучение: сравнение цветами</option></select></label><button id="pause-settings">Настройки</button><button id="pause-levels">Выбор уровней</button><button id="pause-home">Главное меню</button></dialog>
-<dialog id="tutorial" aria-labelledby="tutorial-title"><small id="tutorial-count"></small><div id="tutorial-symbol" aria-hidden="true">◈</div><h2 id="tutorial-title"></h2><p id="tutorial-text"></p><div class="tutorial-buttons"><button id="tutorial-back">← Назад</button><button id="tutorial-next" class="primary">Далее →</button></div><button id="tutorial-close" class="quiet">Пропустить обучение</button></dialog>
 <dialog id="victory"><div class="victory-symbol">✦</div><small>ГАРМОНИЯ ВОССТАНОВЛЕНА</small><h2>Головоломка решена!</h2><p>Оба силуэта совпадают. Вы нашли общую форму.</p><button id="next" class="primary">Следующее испытание →</button><button id="continue">Рассмотреть решение</button><button id="victory-levels">Выбор уровней</button></dialog>`;
 
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -54,7 +57,6 @@ el('projection-help').innerHTML='<div class="diagnostic-colors"><span class="cor
 el('camera-reset').textContent='Начальный ракурс';
 el('settings').insertAdjacentHTML('beforeend','<p id="app-version"></p>');
 el('app-version').textContent=`Версия: ${import.meta.env.VITE_APP_VERSION}`;
-el('home-version').textContent=`v${import.meta.env.VITE_APP_VERSION}`;
 // Keep the playing surface clear; explanations remain available in the menu.
 el('initial-view').innerHTML='⌖ <span>Ракурс</span>';
 el('show-errors').innerHTML='◉ <span>Ошибки</span>';
@@ -68,6 +70,8 @@ try{firstProgress=readProgress(localStorage,firstLevels.length);secondProgress=r
 let campaignId:CampaignId='first',levels=firstLevels,levelGroups=firstGroups,progress=firstProgress;
 let rewardStorage:Storage|undefined;try{rewardStorage=localStorage;}catch{}
 const rewards=new CampaignRewards(rewardStorage,progress.completed);
+const onboarding=new Onboarding(rewardStorage);let learningActive=false;
+const completion=new CompletionDelay();
 const economy=new Economy(rewardStorage,economySources(rewardStorage),rewards.royalUnlocked);
 let index=progress.current,puzzle=new Puzzle(levels[index]),draft:Level=structuredClone(levels[index]);
 let selectedGroup=Math.floor(index/5);
@@ -81,21 +85,24 @@ const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'),economy);
 let arcade:ArcadeUI|undefined;
 let achievementsFromProfile=false;
 new EconomyUI(economy,motya,()=>{achievementsFromProfile=false;showScreen('achievements');},()=>showScreen(achievementsFromProfile?'profile':'home'));
-const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!custom&&!editing&&!arcade?.active,message,economy);
+const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!custom&&!editing&&!learningActive&&!arcade?.active,message,economy);
 arcade=new ArcadeUI(view,motya,()=>showScreen('game'),()=>showScreen('home'),message,economy);
 const lobby=new Lobby(view);
-const playerProfile=new PlayerProfileUI(economy,{completed:()=>firstProgress.completed,completedSecond:()=>secondProgress.completed,records:()=>readArcadeRecords(rewardStorage),canUse:id=>motya.isSkinUnlocked(id),worn:()=>motya.skin},()=>showScreen('profile'),()=>showScreen('home'),()=>{achievementsFromProfile=true;showScreen('achievements');});
+const playerProfile=new PlayerProfileUI(economy,{completed:()=>firstProgress.completed,completedSecond:()=>secondProgress.completed,records:()=>readArcadeRecords(rewardStorage),canUse:id=>motya.isSkinUnlocked(id),worn:()=>motya.skin},()=>showScreen('profile'),()=>showScreen('home'),()=>{achievementsFromProfile=true;showScreen('achievements');},()=>showScreen('wardrobe'));
 const campaignSelection=new CampaignSelection(id=>id==='first'?firstProgress:secondProgress,selectCampaign,()=>showScreen('home'));
 el('royal-reward').insertAdjacentHTML('afterend','<div id="architect-reward" hidden role="status"><p>Все 30 уровней «Новой грани» пройдены! Открыт эксклюзивный костюм: Мотя-архитектор!</p><button id="architect-reward-wardrobe">Посмотреть костюм</button></div>');
 let editor:DevEditor|undefined;
-function save(){try{writeProgress(localStorage,progress,campaignId==='first'?progressKey:secondProgressKey);}catch{}}
+function save(){if(learningActive)return;try{writeProgress(localStorage,progress,campaignId==='first'?progressKey:secondProgressKey);}catch{}}
 let toastTimer:ReturnType<typeof setTimeout>|undefined;
 let backNavigation:BackNavigation|undefined;
 function message(text:string){
   clearTimeout(toastTimer);el('toast').textContent=text;
   toastTimer=setTimeout(()=>{el('toast').textContent='';},3200);
 }
+function cancelVictoryPresentation(){completion.cancel();view.celebrate(false);music.stopVictory();motya.endVictoryPresentation();el('game-screen').inert=false;delete document.body.dataset.celebrating;}
 function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
+  if(learningActive&&next!=='game')return;
+  if(next!=='game'){cancelVictoryPresentation();}
   backNavigation?.reset();
   if(next!=='game')arcade?.leave();
   if(next==='editor'&&!import.meta.env.DEV)return;
@@ -109,7 +116,6 @@ function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
   playerProfile.setVisible(next==='profile');campaignSelection.setVisible(next==='campaigns');
   motya.setScreen(next);if(next==='wardrobe')wardrobe.open(previewSkin);
   if(next==='home'||next==='levels'||next==='wardrobe'||next==='profile'||next==='campaigns'){view.directions.visible=false;}
-  if(next==='home')el('progress-summary').textContent=`Кампании: ${firstLevels.filter(l=>firstProgress.completed.includes(l.name)).length+campaigns.second.levels.filter(l=>secondProgress.completed.includes(l.name)).length} / 60`;
   if(next==='levels'){selectedGroup=Math.floor(index/5);el('level-screen').querySelector('h2')!.textContent=campaigns[campaignId].label+' · '+campaigns[campaignId].name;el('levels-back').textContent='← Кампании';drawCards();}draw();
 }
 function selectCampaign(id:CampaignId,play:boolean){
@@ -118,28 +124,36 @@ function selectCampaign(id:CampaignId,play:boolean){
  puzzle=new Puzzle(levels[index]);if(progress.resume?.level===puzzle.level.name)for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];
  savedPuzzle=puzzle;custom=false;winShown=false;tool='place';if(play)startGame();else showScreen('levels');
 }
-function startGame(){arcade?.leave();motya.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('В режиме «Поставить» наведите на грань существующего кубика.');if(!progress.tutorialSeen)openTutorial();}
-function loadLevel(i:number){if(!campaignUnlocked(campaignId,firstProgress.completed))return;if(!campaignLevelUnlocked(campaignId,i,progress.completed,progress.current))return;campaignHints.clear();index=i;progress.current=i;custom=false;puzzle=new Puzzle(structuredClone(levels[i]));savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
+function startGame(){arcade?.leave();motya.notify({type:'level-start',levelIndex:custom?undefined:index,levelCount:custom?undefined:levels.length});showScreen('game');message('Коснитесь свободной позиции для установки. Для удаления включите «Удалить».');}
+function loadLevel(i:number){cancelVictoryPresentation();if(!campaignUnlocked(campaignId,firstProgress.completed))return;if(!campaignLevelUnlocked(campaignId,i,progress.completed,progress.current))return;campaignHints.clear();index=i;progress.current=i;custom=false;puzzle=new Puzzle(structuredClone(levels[i]));
+ if(progress.resume?.level===puzzle.level.name){for(const cell of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(cell);puzzle.history=[];if(puzzle.won&&progress.completed.includes(puzzle.level.name))puzzle=new Puzzle(structuredClone(levels[i]));}
+ savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
 function checkWin(){
- if(arcade?.active||editing||screen!=='game')return;
+ if(learningActive||arcade?.active||editing||screen!=='game')return;
  if(!puzzle.won){winShown=false;return;}campaignHints.clear();if(winShown)return;winShown=true;
  if(!custom&&!progress.completed.includes(levels[index].name)){progress.completed.push(levels[index].name);save();}
  if(!custom){if(campaignId==='first')economy.syncCampaign(firstProgress.completed);else economy.syncSecondCampaign(secondProgress.completed);}
  const royalJustUnlocked=!custom&&campaignId==='first'&&rewards.recordCampaignCompletion(firstProgress.completed);
  el('royal-reward').hidden=!royalJustUnlocked;el('architect-reward').hidden=custom||campaignId!=='second'||!completedSecondCampaign(secondProgress.completed);
- closeDialog('tutorial');
- if(!custom&&(royalJustUnlocked||isFinalLevel(index,levels.length)&&(campaignId==='first'?completedRoyalCampaign(firstProgress.completed):completedSecondCampaign(secondProgress.completed)))){
+ const final=!custom&&(royalJustUnlocked||isFinalLevel(index,levels.length)&&(campaignId==='first'?completedRoyalCampaign(firstProgress.completed):completedSecondCampaign(secondProgress.completed)));
+ view.celebrate(true);document.body.dataset.celebrating='true';el('game-screen').inert=true;music.victory();motya.notify({type:final?'game-win':'level-win'});motya.beginVictoryPresentation();
+ completion.start(()=>{
+ if(screen!=='game'||!puzzle.won)return;
+ delete document.body.dataset.celebrating;el('game-screen').inert=false;motya.endVictoryPresentation();
+ if(final){
   el('campaign-complete').querySelector('p')!.textContent='Вы прошли все 30 уровней кампании «'+campaigns[campaignId].name+'»!';
   el('completion-count').textContent='Пройдено уровней: '+levels.filter(l=>progress.completed.includes(l.name)).length+' из 30';
   el<HTMLDialogElement>('campaign-complete').showModal();motya.notify({type:'game-win',levelCount:30});
  }else{el<HTMLDialogElement>('victory').showModal();motya.notify({type:'level-win'});}
+ });
 }
 function draw(){
   if(arcade?.active){campaignHints.clear();arcade.draw();return;}
   if(screen!=='game'&&screen!=='editor'){campaignHints.refresh();return;}
   if(editing)campaignHints.clear();
   view.setInteraction(tool,puzzle.level.limit-puzzle.placed.length,editing);
-  view.sync(puzzle,false,false,editing?'normal':projectionMode);
+  view.sync(puzzle,false,learningActive&&(onboarding.step===1||onboarding.step===5),editing?'normal':projectionMode);
+  if(learningActive)for(const cube of view.objects)if(cube.userData.empty){const allowed=onboarding.accepts('place',cube.userData.cell);(cube.material as import('three').MeshStandardMaterial).opacity=allowed?.22:0;cube.children[0].visible=allowed;}
   campaignHints.refresh();
   view.directions.visible=screen==='game'&&projectionMode==='training';
   el('level-name').textContent=editing?'Редактор':puzzle.level.name;
@@ -147,10 +161,11 @@ function draw(){
   for(const next of ['place','remove']){el(next).classList.toggle('active',next===tool);el(next).setAttribute('aria-pressed',String(next===tool));}
   el<HTMLButtonElement>('undo').disabled=editing||!puzzle.history.length;
   updateDiagnosticUI();
-  el('control-note').textContent=tool==='place'?'Наведите на грань кубика · Перетаскивание — обзор':'Удалить: нажмите на свой кубик · Нельзя разрывать конструкцию';
+  el('control-note').textContent='Касание — действие · «Удалить» — убрать кубик · Свайп — обзор';
   if(import.meta.env.DEV&&editing)editor?.drawTargets(puzzle.level);
   checkWin();
-  if(screen==='game'&&!custom&&!editing){progress.resume={level:puzzle.level.name,placed:structuredClone(puzzle.placed)};save();}
+  if(learningActive)renderLearning();
+  if(screen==='game'&&!custom&&!editing&&!learningActive){progress.resume={level:puzzle.level.name,placed:structuredClone(puzzle.placed)};save();}
 }
 function updateDiagnosticUI(){
   const enabled=projectionMode==='training';
@@ -170,28 +185,33 @@ function setProjectionMode(mode:ProjectionMode){
   view.directions.visible=screen==='game'&&mode==='training';
   updateDiagnosticUI();
   if(mode==='training')motya.notify({type:'diagnostics',hasErrors:diagnose(puzzle.level.targets,puzzle.projections).some(r=>r.matches<puzzle.size**2)});
+  if(learningActive&&mode==='training')advanceLearning('silhouettes');
 }
 function setTool(next:Tool){if(arcade?.active){arcade.setTool(next);return;}tool=next;el('place').classList.toggle('active',tool==='place');el('remove').classList.toggle('active',tool==='remove');el('place').setAttribute('aria-pressed',String(tool==='place'));el('remove').setAttribute('aria-pressed',String(tool==='remove'));draw();}
-function clickCell(cell:Vec){
-  if(arcade?.active){arcade.act(cell);return;}
+function clickCell(cell:Vec,action:Tool=tool){
+  if(completion.pending||document.querySelector('dialog[open]'))return;
+  if(learningActive){if(!onboarding.accepts(action,cell))return;if(act(puzzle,action,cell)){advanceLearning(action==='remove'?'remove':puzzle.won?'solve':'place');if(learningActive)draw();}return;}
+  if(arcade?.active){arcade.act(cell,action);return;}
   if(screen!=='game'&&screen!=='editor')return;
   if(editing){editor?.editCell(cell);return;}
   const mismatches=()=>diagnose(puzzle.level.targets,puzzle.projections).reduce((sum,result)=>sum+puzzle.size**2-result.matches,0);
   const before=mismatches();
-  if(act(puzzle,tool,cell)){const improved=mismatches()<before;message(tool==='place'?'＋ Кубик установлен':'↶ Кубик в запасе');draw();if(tool==='place')motya.notify({type:'placed',improved});}
+  if(act(puzzle,action,cell)){const improved=mismatches()<before;message(action==='place'?'Кубик установлен':'Кубик в запасе');draw();if(action==='place')motya.notify({type:'placed',improved});}
   else{
     const fixed=puzzle.level.fixed.some(p=>key(p)===key(cell)),placed=puzzle.placed.some(p=>key(p)===key(cell));
-    message(tool==='place'?'Нужна свободная соседняя ячейка внутри сетки и кубик в запасе.':fixed?'Это основа конструкции. Удаление запрещено':placed?'Нельзя удалить: другие кубики потеряют связь с неподвижной основой.':'Удалять можно только кубики, которые установили вы.');
-    motya.notify({type:'forbidden',reason:tool==='place'?(puzzle.placed.length>=puzzle.level.limit?'stock':'other'):fixed?'fixed':placed?'disconnected':'other'});
+    message(action==='place'?'Нужна свободная соседняя ячейка внутри сетки и кубик в запасе.':fixed?'Это основа конструкции. Удаление запрещено':placed?'Нельзя удалить: другие кубики потеряют связь с неподвижной основой.':'Удалять можно только кубики, которые установили вы.');
+    motya.notify({type:'forbidden',reason:action==='place'?(puzzle.placed.length>=puzzle.level.limit?'stock':'other'):fixed?'fixed':placed?'disconnected':'other'});
   }
 }
-view.onCell=clickCell;
+view.onCell=cell=>clickCell(cell,view.tool);
+for(const id of ['victory','campaign-complete'])el(id).addEventListener('close',()=>{if(!completion.pending)cancelVictoryPresentation();});
+view.onCameraRotate=()=>{if(learningActive)advanceLearning('rotate');};
 // Observe a rejected zero-stock click without changing the scene's Raycaster
 // or sending an action to the puzzle. A separate gesture guard filters drags.
-const motyaGesture=new PointerTapGesture();let emptyStockAtPress=false;
-view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockAtPress=!arcade?.active&&screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
+const motyaGesture=new PointerTapGesture();let emptyStockAtPress=false,emptyStockPressAt=0;
+view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockPressAt=event.timeStamp;emptyStockAtPress=!arcade?.active&&screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
 view.renderer.domElement.addEventListener('pointermove',event=>motyaGesture.move(event.pointerId,event.clientX,event.clientY));
-view.renderer.domElement.addEventListener('pointerup',event=>{if(event.button!==0)return;if(motyaGesture.end(event.pointerId,event.clientX,event.clientY)&&emptyStockAtPress&&screen==='game'&&tool==='place'&&view.ray.intersectObjects(view.objects.filter(o=>o.visible&&!o.userData.empty),false).length)motya.notify({type:'forbidden',reason:'stock'});emptyStockAtPress=false;});
+view.renderer.domElement.addEventListener('pointerup',event=>{if(event.button!==0)return;if(motyaGesture.end(event.pointerId,event.clientX,event.clientY)&&event.timeStamp-emptyStockPressAt<600&&emptyStockAtPress&&screen==='game'&&tool==='place'&&view.ray.intersectObjects(view.objects.filter(o=>o.visible&&!o.userData.empty),false)[0]?.object.userData.fixed)motya.notify({type:'forbidden',reason:'stock'});emptyStockAtPress=false;});
 for(const type of ['pointerleave','pointercancel'])view.renderer.domElement.addEventListener(type,()=>{motyaGesture.cancel();emptyStockAtPress=false;});
 function drawCards(){
   const cards=el('level-cards');cards.replaceChildren();
@@ -206,10 +226,10 @@ function drawCards(){
   el('level-group-name').textContent=levelGroups[selectedGroup]??'Испытания';
   levels.forEach((l,i)=>{if(Math.floor(i/5)!==selectedGroup)return;const card=document.createElement('button');card.className='level-card';card.dataset.level=String(i);const unlocked=campaignLevelUnlocked(campaignId,i,progress.completed,progress.current);card.disabled=!unlocked;card.classList.toggle('locked',!unlocked);const n=document.createElement('span');n.className='card-number';n.textContent=String(i+1).padStart(2,'0');const name=document.createElement('h3');name.textContent=l.name.split(' · ')[1]||l.name;const detail=document.createElement('p');detail.textContent=`${['Знакомство с формой','Глубина и пересечения','Пространственный вызов','Два направления','Взгляд с обратной стороны','Переплетённые пути','Каждый блок на счету','Несколько верных решений','Последовательность граней','Финальное испытание'][i]??levelGroups[Math.floor(i/5)]??'Новое испытание'} · ${l.limit} кубика`;const state=document.createElement('small');state.textContent=progress.completed.includes(l.name)?'✓ Пройдено':unlocked?'Начать испытание →':'Сначала пройдите предыдущее испытание';card.classList.toggle('completed',progress.completed.includes(l.name));card.append(n,name,detail,state);card.onclick=()=>loadLevel(i);cards.append(card);});
 }
-function closeDialog(id:string){el<HTMLDialogElement>(id).close();}
+function closeDialog(id:string){if(id==='victory'||id==='campaign-complete')cancelVictoryPresentation();el<HTMLDialogElement>(id).close();}
 let settingsFromPause=false;
 function openSettings(fromPause=false){settingsFromPause=fromPause;motya.setScreen('settings');view.controls.enabled=false;el<HTMLDialogElement>('settings').showModal();}
-function openPause(){if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
+function openPause(){if(completion.pending)return;view.cancelInput();if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
 el<HTMLDialogElement>('pause').addEventListener('close',()=>{view.controls.enabled=screen==='game'||screen==='editor';});
 el('open-wardrobe').onclick=()=>showScreen('wardrobe');
 el('open-settings').onclick=()=>openSettings();el('settings-close').onclick=()=>closeDialog('settings');
@@ -240,7 +260,7 @@ el('resume').onclick=()=>closeDialog('pause');el('pause-home').onclick=()=>{clos
 el('camera-reset').onclick=()=>{view.resetCamera();closeDialog('pause');message('Ракурс восстановлен. Форма осталась на месте.');};
 el('initial-view').onclick=()=>{view.resetCamera();message('Начальный ракурс восстановлен.');};
 el('place').onclick=()=>setTool('place');el('remove').onclick=()=>setTool('remove');
-el('undo').onclick=()=>{if(arcade?.active)return;puzzle.undo();draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
+el('undo').onclick=()=>{if(arcade?.active||completion.pending||learningActive&&onboarding.step!==3)return;puzzle.undo();if(learningActive)advanceLearning('undo');draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active||learningActive||completion.pending)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
 el<HTMLSelectElement>('projection-mode').onchange=e=>setProjectionMode((e.target as HTMLSelectElement).value as ProjectionMode);
 el('show-errors').onclick=()=>setProjectionMode(projectionMode==='normal'?'training':'normal');
 el('next').onclick=()=>{closeDialog('victory');const next=nextLevelIndex(index,levels.length);if(next!==null)loadLevel(next);else showScreen('levels');};el('continue').onclick=()=>closeDialog('victory');el('victory-levels').onclick=()=>{closeDialog('victory');showScreen('levels');};
@@ -250,19 +270,34 @@ el('completion-replay').onclick=()=>{closeDialog('campaign-complete');loadLevel(
 el('royal-reward-wardrobe').onclick=()=>{closeDialog('campaign-complete');showScreen('wardrobe','royal');};
 el('architect-reward-wardrobe').onclick=()=>{closeDialog('campaign-complete');showScreen('wardrobe','architect');};
 
-const tutorial=[
-  ['Осматривай конструкцию, вращая камеру мышкой','Зажми левую кнопку на фоне и веди мышь. Колесо приближает и отдаляет. Кубики при этом остаются на своих местах.','◈'],
-  ['Сопоставь фигуру с двумя боковыми силуэтами','Две золотые панели стоят параллельно соседним граням сетки. Если вдоль линии взгляда есть хотя бы один кубик, клетка силуэта заполнена.','▦'],
-  ['Устанавливай недостающие кубики','Выбери «Поставить» и наведи на грань существующего кубика. Предпросмотр появится в соседней ячейке. Клик присоединит блок этой гранью. По диагонали и отдельно строить нельзя. Каждое нажатие «Подсказка» открывает следующий пронумерованный шаг: золотой + означает установку, оранжевый − означает удаление. Маркеры не являются настоящими кубиками; выполняйте шаги по порядку через грани конструкции.','＋'],
-  ['При необходимости удаляй поставленные блоки','Переключись на «Удалить»: твои кубики подсвечиваются красным при наведении. Клик возвращает выбранный кубик в запас. Основу и кубики, удаление которых оторвёт остальные блоки, убрать нельзя.','−'],
-  ['Добейся совпадения обоих силуэтов','Используй ограниченный запас и сопоставляй обе стороны. Через меню можно включить сравнение цветами: зелёный — совпало, жёлтый — нужен кубик, красный — лишний.','✦']
-];
-let tutorialStep=0;
-function renderTutorial(){const [title,text,symbol]=tutorial[tutorialStep];el('tutorial-count').textContent=`ЗНАКОМСТВО · ${tutorialStep+1} / ${tutorial.length}`;el('tutorial-title').textContent=title;el('tutorial-text').textContent=text;el('tutorial-symbol').textContent=symbol;el<HTMLButtonElement>('tutorial-back').disabled=tutorialStep===0;el('tutorial-next').textContent=tutorialStep===tutorial.length-1?'Начать игру':'Далее →';}
-function openTutorial(){tutorialStep=0;renderTutorial();el<HTMLDialogElement>('tutorial').showModal();}
-function finishTutorial(){progress.tutorialSeen=true;save();closeDialog('tutorial');if(screen==='home'||screen==='levels')startGame();}
-el('how-to').onclick=()=>{closeDialog('settings');openTutorial();};el('pause-help').onclick=()=>{closeDialog('pause');openTutorial();};el('tutorial-next').onclick=()=>{if(tutorialStep===tutorial.length-1)finishTutorial();else{tutorialStep++;renderTutorial();}};el('tutorial-back').onclick=()=>{if(tutorialStep>0){tutorialStep--;renderTutorial();}};el('tutorial-close').onclick=finishTutorial;
-el<HTMLDialogElement>('tutorial').addEventListener('cancel',()=>{progress.tutorialSeen=true;save();});
+el('app').insertAdjacentHTML('beforeend','<aside id="learning-panel" hidden aria-live="polite"><small id="learning-count"></small><h3 id="learning-title"></h3><p id="learning-text"></p><button id="learning-skip" hidden>Я знаю, как играть</button></aside><dialog id="learning-confirm" aria-labelledby="learning-confirm-title"><h2 id="learning-confirm-title">Пропустить обучение?</h2><p>Вы сможете вернуться к нему в настройках.</p><button id="learning-confirm-skip" class="primary">Да, я знаю, как играть</button><button id="learning-confirm-stay">Продолжить обучение</button></dialog>');
+function renderLearning(){
+ const step=learningSteps[onboarding.step];el('learning-panel').hidden=!learningActive;if(!learningActive)return;
+ el('learning-count').textContent='ЗНАКОМСТВО · '+(onboarding.step+1)+' / '+learningSteps.length;
+ el('learning-title').textContent=step.title;el('learning-text').textContent=onboarding.error||step.text;
+ el('learning-skip').hidden=!onboarding.canSkip;
+ const action=onboarding.step===3?'undo':onboarding.step===4?'show-errors':onboarding.step===1||onboarding.step===5?'place':'';
+ for(const id of ['place','remove','undo','reset','hint','show-errors']){const b=el<HTMLButtonElement>(id);b.dataset.learningAction=String(id===action);b.disabled=id!==action;}
+ for(const id of ['pause-levels','pause-home'])el<HTMLButtonElement>(id).disabled=true;
+}
+function beginLearning(replay=false){
+ for(const d of Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]')))d.close();
+ if(!learningActive){savedPuzzle=puzzle;arcade?.leave();}
+ if(replay&&onboarding.done)onboarding.replay();learningActive=true;document.body.dataset.learning='true';
+ campaignHints.clear();puzzle=onboarding.puzzle();tool='place';projectionMode=onboarding.step>=5?'training':'normal';
+ showScreen('game');view.resetCamera();renderLearning();
+}
+function finishLearning(){
+ learningActive=false;delete document.body.dataset.learning;el('learning-panel').hidden=true;
+ for(const id of ['place','remove','undo','reset','hint','show-errors','pause-levels','pause-home']){const b=el<HTMLButtonElement>(id);b.disabled=false;delete b.dataset.learningAction;}
+ puzzle=savedPuzzle;tool='place';projectionMode='normal';view.controls.enabled=true;showScreen('home');message('Знакомство завершено!');
+}
+function advanceLearning(action:Parameters<Onboarding['advance']>[0]){if(!onboarding.advance(action)){if(onboarding.error){puzzle=onboarding.puzzle();draw();}renderLearning();return;}if(onboarding.done)finishLearning();else{renderLearning();draw();}}
+function openTutorial(){beginLearning(true);}
+el('how-to').onclick=()=>{closeDialog('settings');openTutorial();};el('pause-help').onclick=()=>{closeDialog('pause');if(!learningActive)openTutorial();};
+el('learning-skip').onclick=()=>{if(onboarding.canSkip)el<HTMLDialogElement>('learning-confirm').showModal();};
+el('learning-confirm-stay').onclick=()=>closeDialog('learning-confirm');
+el('learning-confirm-skip').onclick=()=>{if(onboarding.canSkip&&onboarding.skip()){closeDialog('learning-confirm');finishLearning();}else renderLearning();};
 
 if(import.meta.env.DEV&&new URLSearchParams(location.search).get('editor')==='1'){
   void import('./dev-editor').then(({mountDevEditor})=>{editor=mountDevEditor({
@@ -273,4 +308,4 @@ if(import.meta.env.DEV&&new URLSearchParams(location.search).get('editor')==='1'
     openMenu:openPause,message
   });});
 }
-showScreen('home');motya.notify({type:'greeting'});
+if(onboarding.done){showScreen('home');motya.notify({type:'greeting'});}else beginLearning();

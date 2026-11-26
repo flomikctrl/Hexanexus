@@ -17,7 +17,7 @@ export class ArcadeUI {
  constructor(private view:Scene,private motya:MotyaAssistant,private enter:()=>void,private home:()=>void,private message:(text:string)=>void,private economy?:Economy){
   try{this.storage=localStorage;}catch{}
   this.session=ArcadeSession.restore(this.storage,undefined,event=>this.reaction(event));
-  el('play').insertAdjacentHTML('afterend','<button id="open-arcade">∞ Бесконечный режим</button>');
+  el('play').insertAdjacentHTML('afterend','<button id="open-arcade">Бесконечный режим</button>');
   document.querySelector('.game-header')!.insertAdjacentHTML('beforeend','<div id="arcade-hud" hidden><span id="arcade-score"></span><span id="arcade-lives" aria-label="Жизни"></span><time id="arcade-time" aria-label="Осталось времени"></time></div>');
   el('app').insertAdjacentHTML('beforeend',`<dialog id="arcade-entry" class="arcade-dialog" aria-labelledby="arcade-entry-title"><small>НОВЫЙ РЕЖИМ · ОФЛАЙН</small><h2 id="arcade-entry-title">Бесконечный режим</h2><p>Одна конструкция. Один ход на каждый новый силуэт: добавьте или удалите кубик. Ошибка сразу отнимает сердечко и отменяет ход. Всего три жизни.</p><p id="arcade-records"></p><button id="arcade-continue" class="primary">Продолжить партию</button><button id="arcade-start">Новая партия</button><button id="arcade-entry-home">Назад</button></dialog>
   <dialog id="arcade-pause" class="arcade-dialog" aria-labelledby="arcade-pause-title"><small>ТАЙМЕР ОСТАНОВЛЕН</small><h2 id="arcade-pause-title">Пауза</h2><button id="arcade-resume" class="primary">Продолжить</button><button id="arcade-view">Начальный ракурс</button><button id="arcade-pause-home">Сохранить и выйти</button><p>Найдите один ход для обоих силуэтов. Основа не удаляется. За запрещённый ход жизнь не снимается.</p></dialog>
@@ -70,9 +70,9 @@ export class ArcadeUI {
  setTool(tool:Tool){
   this.tool=tool;for(const next of ['place','remove']){el(next).classList.toggle('active',next===tool);el(next).setAttribute('aria-pressed',String(next===tool));}this.draw();
  }
- act(cell:Vec){
+ act(cell:Vec,tool:Tool=this.tool){
   if(!this.active||!this.session)return;
-  const result=this.session.act(this.tool,cell);this.handle(result);
+  const result=this.session.act(tool,cell);this.handle(result);
   if(result!=='blocked'){this.draw();this.drawHud();}
  }
  private handle(result:ArcadeResult){

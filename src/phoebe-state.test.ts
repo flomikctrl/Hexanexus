@@ -1,6 +1,6 @@
 import {phoebeLines} from './phoebe-lines';
 import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
-import {PhoebeController,readPhoebeSetting,savePhoebeSetting,phoebeSettingKey,friendlyLines} from './phoebe-state';
+import {PhoebeController,friendlyLines} from './phoebe-state';
 describe('Независимые реакции Фиби',()=>{
   beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(10000);});afterEach(()=>vi.useRealTimers());
   it('Мотя поздравляет с достижением и возвращается в обычное состояние',()=>{
@@ -43,8 +43,4 @@ describe('Независимые реакции Фиби',()=>{
     const p=new PhoebeController();p.notify({type:'game-win'});p.notify({type:'level-start'});expect(p.state.emotion).toBe('IDLE');expect(p.state.animation).toBe('idle');expect(phoebeLines.start).toContain(p.state.message);expect(vi.getTimerCount()).toBe(2);vi.advanceTimersByTime(6000);expect(p.state.message).toBe('');expect(vi.getTimerCount()).toBe(0);
   });
   it('успешная установка вызывает обычную реплику с ограничением частоты',()=>{const p=new PhoebeController();p.notify({type:'placed'});expect(phoebeLines.placed).toContain(p.state.message);expect(p.state.animation).toBe('idle');});
-});
-describe('Сохранение настройки Фиби',()=>{
-  it('включена по умолчанию; отдельный ключ сохраняет выключение',()=>{let value:string|null=null;const storage={getItem:()=>value,setItem:(key:string,v:string)=>{expect(key).toBe(phoebeSettingKey);value=v;}};expect(readPhoebeSetting(storage)).toBe(true);expect(savePhoebeSetting(storage,false)).toBe(true);expect(readPhoebeSetting(storage)).toBe(false);savePhoebeSetting(storage,true);expect(readPhoebeSetting(storage)).toBe(true);});
-  it('отказ localStorage не мешает работе игры',()=>{expect(readPhoebeSetting({getItem:()=>{throw Error('denied');}})).toBe(true);expect(savePhoebeSetting({setItem:()=>{throw Error('denied');}},false)).toBe(false);});
 });

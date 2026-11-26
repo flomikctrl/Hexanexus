@@ -6,9 +6,12 @@ import {Puzzle} from './state';
 import {levels} from './levels';
 import {HintChain,findHintPath,hintSnapshot} from './hint-path';
 import type {Vec} from './math';
+import {PointerTapGesture} from './interaction';
 
 function sceneFor(puzzle=new Puzzle(levels[0])){
  const view=Object.create(Scene.prototype) as Scene;
+ view.cancelInput=()=>{}; // Gesture UI is not constructed by this Raycaster fixture.
+ view.gesture=new PointerTapGesture();
  Object.assign(view,{scene:new T.Scene(),hints:new HintOverlay(),group:new T.Group(),geometry:new T.BoxGeometry(.91,.91,.91),edgeGeometry:new T.EdgesGeometry(new T.BoxGeometry(.93,.93,.93)),panels:[new T.Group(),new T.Group()],directions:new T.Group(),hover:null,objects:[],fading:[],lastOccupied:new Set(),reduced:true,target:new T.Quaternion(),from:new T.Quaternion(),editing:false,menu:false,showEmpty:false,busy:false,tool:'place',ray:new T.Raycaster(),mouse:new T.Vector2(),camera:new T.PerspectiveCamera(40,1,.1,100),renderer:{domElement:{getBoundingClientRect:()=>({left:0,top:0,width:1000,height:1000}),style:{}}}});
  for(const panel of view.panels)panel.add(new T.Mesh(),new T.LineSegments(new T.BufferGeometry(),new T.LineBasicMaterial()));
  view.camera.position.set(6,4.8,7.6);view.camera.lookAt(0,0,0);view.camera.updateMatrixWorld();view.sync(puzzle,false,false,'normal');return {view,puzzle};

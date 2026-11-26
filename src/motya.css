@@ -24,4 +24,8 @@
 .motya.motya--wardrobe{position:relative;inset:auto;display:grid;place-items:center;width:100%;height:100%;max-width:none;--motya-size:var(--wardrobe-sprite-size,220px)!important;filter:drop-shadow(0 8px 12px #0002)}
 .motya--wardrobe .motya-character{animation:none!important;pointer-events:none}.motya--wardrobe .motya-speech{display:none}
 .motya.motya--dialog{--motya-size:135px!important}
+.motya[data-victory] .motya-character{animation:none!important;transform:translateY(0)}
+.motya[data-victory=playing] .motya-character{animation:victory-hop .65s ease-in-out .55s 3 both!important}
+@keyframes victory-hop{0%,100%{transform:translateY(0)}45%{transform:translateY(-16px)}75%{transform:translateY(-2px)}}
+@media(prefers-reduced-motion:reduce){.motya[data-victory=playing] .motya-character{animation:none!important}}
 @media(max-width:650px){.motya{--motya-size:112px}.motya-speech{max-width:min(200px,calc(100vw - 155px))}}

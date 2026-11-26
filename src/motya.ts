@@ -1,5 +1,5 @@
 import './motya.css';
-import {PhoebeController,readPhoebeSetting,savePhoebeSetting,type PhoebeEvent,type PhoebeState} from './phoebe-state';
+import {PhoebeController,type PhoebeEvent,type PhoebeState} from './phoebe-state';
 import {PhoebeSpriteSwitcher,type PhoebeSprite} from './phoebe-sprite';
 import {readMotyaSkin,saveMotyaSkin,skinSprite,skinIds,skinStorageKey,type MotyaSkinId,type MotyaEmotion} from './motya-skins';
 
@@ -18,7 +18,6 @@ export class MotyaAssistant {
   private renderVersion=0;
   private screen='home';
   private footer:HTMLElement;
-  private setting:HTMLInputElement;
   private observer:ResizeObserver;
   private layoutFrame=0;
   private activeSkin:MotyaSkinId='classic';
@@ -36,12 +35,9 @@ export class MotyaAssistant {
     this.button.append(this.image);this.root.append(this.bubble,this.button);document.body.append(this.root);
     this.spriteSwitcher=new PhoebeSpriteSwitcher(this.image,sprite=>{this.button.style.clipPath=sprite.clip;});
     this.footer=document.querySelector('.game-footer')!;
-    document.getElementById('mascot-settings')!.innerHTML='<label class="motya-setting"><input type="checkbox" id="motya-enabled"> Показывать Мотю</label><p id="motya-asset-warning" hidden role="status"></p>';
-    this.setting=document.getElementById('motya-enabled') as HTMLInputElement;
-    let enabled=true;try{enabled=readPhoebeSetting(localStorage);}catch{}
-    this.setting.checked=enabled;this.controller=new PhoebeController(enabled,state=>this.render(state));
+    document.getElementById('mascot-settings')!.innerHTML='<p id="motya-asset-warning" hidden role="status"></p>';
+    this.controller=new PhoebeController(true,state=>this.render(state));
     const options={signal:this.listeners.signal};
-    this.setting.addEventListener('change',()=>{this.controller.setEnabled(this.setting.checked);try{savePhoebeSetting(localStorage,this.setting.checked);}catch{}},options);
     for(const type of ['pointerdown','pointerup','dblclick','contextmenu'])this.button.addEventListener(type,e=>e.stopPropagation(),options);
     this.button.addEventListener('click',e=>{e.stopPropagation();if(!this.preview)this.notify({type:'manual'});},options);
     this.observer=new ResizeObserver(()=>this.scheduleLayout());this.observer.observe(this.footer);this.observer.observe(document.getElementById('toast')!);
@@ -76,9 +72,11 @@ export class MotyaAssistant {
     this.preview={skin,emotion};this.root.classList.add('motya--wardrobe');host.append(this.root);this.render(this.controller.state);
   }
   endPreview(){if(!this.preview)return;this.preview=null;this.root.classList.remove('motya--wardrobe');this.mount(null);this.render(this.controller.state);}
+  beginVictoryPresentation(){this.root.dataset.victory='playing';}
+  endVictoryPresentation(){if(this.root.dataset.victory)this.root.dataset.victory='done';}
   notify(event:PhoebeEvent){
     if(this.disposed)return false;const accepted=this.controller.notify(event);
-    if(accepted&&(event.type==='level-win'||event.type==='game-win')){this.mount(document.getElementById(event.type==='game-win'?'campaign-complete':'victory') as HTMLDialogElement);this.render(this.controller.state);}
+    if(event.type==='level-win'||event.type==='game-win'){const dialog=document.getElementById(event.type==='game-win'?'campaign-complete':'victory') as HTMLDialogElement;if(dialog.open)this.mount(dialog);this.render(this.controller.state);}
     return accepted;
   }
   setScreen(screen:string){
@@ -95,6 +93,7 @@ export class MotyaAssistant {
     if(this.disposed)return;const version=++this.renderVersion;
     const preview=this.preview,skin=preview?.skin??this.activeSkin,emotion=preview?.emotion??state.emotion;
     const animation=preview?'idle':state.animation;
+    if(animation!=='victory'&&animation!=='final-victory'&&this.root.dataset.victory==='done')delete this.root.dataset.victory;
     this.root.hidden=!preview&&(!state.enabled||this.screen==='editor'||this.screen==='settings'||this.screen==='wardrobe'||this.screen==='profile'||this.screen==='campaigns');
     this.root.dataset.skin=skin;this.root.dataset.emotion=emotion;
     this.button.tabIndex=preview?-1:0;this.button.title=preview?'Предпросмотр Моти':'Поговорить с Мотей';this.button.setAttribute('aria-label',this.button.title);
@@ -125,8 +124,8 @@ export class MotyaAssistant {
   }
   private layout(){
     if(this.root.hidden||this.preview||this.root.classList.contains('motya--dialog'))return;
-    let bottom=this.screen==='home'?38:18;const mobile=innerWidth<=650,size=mobile?112:175,right=mobile?12:20;
-    const obstacles=this.screen==='game'?[this.footer,document.getElementById('toast')!]:this.screen==='home'?[document.querySelector('.home-actions')!,document.getElementById('progress-summary')!]:[];
+    let bottom=this.screen==='home'?24:18;const mobile=innerWidth<=650,size=mobile?94:146,right=mobile?16:24;
+    const obstacles=this.screen==='game'?[this.footer,document.getElementById('toast')!]:this.screen==='home'?[document.querySelector('.home-actions')!]:[];
     for(const obstacle of obstacles){const rect=obstacle.getBoundingClientRect();
       if(rect.width&&innerWidth-right-size<rect.right&&innerWidth-right>rect.left&&innerHeight-bottom>rect.top&&innerHeight-bottom-size<rect.bottom)bottom=Math.max(bottom,innerHeight-rect.top+12);
     }
@@ -134,6 +133,6 @@ export class MotyaAssistant {
   }
   dispose(){
     if(this.disposed)return;this.disposed=true;this.renderVersion++;this.controller.dispose();this.spriteSwitcher.dispose();this.listeners.abort();this.observer.disconnect();
-    if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);this.setting.closest('.motya-setting')?.remove();document.getElementById('motya-asset-warning')?.remove();this.root.remove();
+    if(this.layoutFrame)cancelAnimationFrame(this.layoutFrame);document.getElementById('motya-asset-warning')?.remove();this.root.remove();
   }
 }

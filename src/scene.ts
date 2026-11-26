@@ -1,10 +1,11 @@
+import {VictoryPresentation,victoryDuration} from './victory-presentation';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {gridCells, key,type Mat, type Vec} from './math';
 import {equal} from './projections';
 import type {Puzzle} from './state';
-import {cellStyle,cellColors,blockAppearance,removalHighlight,type ProjectionMode} from './presentation';
+import {cellStyle,cellColors,blockAppearance,type ProjectionMode} from './presentation';
 import {PointerTapGesture,type Tool} from './interaction';
 import {neighborFromNormal} from './connectivity';
 import {HintOverlay} from './hint-overlay';
@@ -19,10 +20,16 @@ export class Scene {
   controls:OrbitControls; group=new T.Group(); panels:T.Group[]=[]; ray=new T.Raycaster(); mouse=new T.Vector2();
   objects:T.Mesh[]=[]; target=new T.Quaternion(); hover:T.Mesh|null=null; busy=false; start=0; from=new T.Quaternion();
   onCell:(p:Vec)=>void=()=>{}; onSettled:()=>void=()=>{}; down={x:0,y:0}; destroyed=false;
+  onCameraRotate:()=>void=()=>{};
+  private cameraAtPress=new T.Quaternion();
+  private celebrationAt:number|null=null;
+  private victoryPresentation=new VictoryPresentation();
+  private controlsBeforeVictory=true;
+  private directionsBeforeVictory=false;
+  private mobile=false;
   geometry=new RoundedBoxGeometry(.91,.91,.91,2,.055); edgeGeometry=new T.EdgesGeometry(new T.BoxGeometry(.93,.93,.93));
   cornerGeometry=new T.BoxGeometry(.12,.12,.12);
   sparks:T.Points; reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  lastOccupied=new Set<string>(); fading:T.Mesh[]=[]; effectStart=0;
   showEmpty=false;
   tool:Tool='place';remaining=0;editing=false;menu=true;gesture=new PointerTapGesture();
   decoration=new T.Group();directions=new T.Group();
@@ -38,7 +45,7 @@ export class Scene {
   constructor(public host:HTMLElement){
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;
     this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.65;host.append(this.renderer.domElement);
-    this.scene.background=new T.Color('#1b3339');this.scene.fog=new T.FogExp2('#1b3339',.025);
+    this.scene.background=new T.Color('#152e32');this.scene.fog=new T.FogExp2('#152e32',.025);
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=true;this.controls.dampingFactor=.08;this.controls.enablePan=false;this.controls.minDistance=6;this.controls.maxDistance=13;this.controls.minPolarAngle=.05;this.controls.maxPolarAngle=Math.PI-.05;this.resetCamera();
     this.scene.add(new T.HemisphereLight(0xd4fff3,0x718b88,2.6));
     const fill=new T.DirectionalLight(0x8dded7,2.4);fill.position.set(-4,3,6);this.scene.add(fill);
@@ -57,25 +64,27 @@ export class Scene {
     this.decoration=createLobbyFigure(this.geometry,this.edgeGeometry);this.scene.add(this.decoration);
     const points=new Float32Array(240);for(let i=0;i<points.length;i++)points[i]=(Math.random()-.5)*14;
     const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(points,3));this.sparks=new T.Points(geo,new T.PointsMaterial({color:0xffd88e,size:.025,transparent:true,opacity:.6}));this.scene.add(this.sparks);
-    const canvas=this.renderer.domElement;
-    // Holding the scene is a game gesture, not a browser selection/context menu.
+    this.bindInput(this.renderer.domElement);
+    this.loop=new FrameLoop(this.frame);document.addEventListener('visibilitychange',()=>this.updateLoop(),{signal:this.listeners.signal});
+    this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(host);this.resize();this.updateLoop();
+  }
+  private bindInput(canvas:HTMLCanvasElement){
+    // Restored from b8b0e08b8e7d7ad66592ce1501594741a462d881; the tutorial only observes camera rotation.
     const options={signal:this.listeners.signal};
     canvas.addEventListener('contextmenu',e=>e.preventDefault(),options);
-    canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(this.menu){if(this.lobbyRotation.begin(e.pointerId,e.clientX,e.clientY,e.timeStamp)){e.preventDefault();canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';}return;}this.gesture.begin(e.pointerId,e.clientX,e.clientY);this.pick(e);},options);
+    canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;if(this.menu){if(this.lobbyRotation.begin(e.pointerId,e.clientX,e.clientY,e.timeStamp)){e.preventDefault();canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';}return;}this.gesture.begin(e.pointerId,e.clientX,e.clientY);this.cameraAtPress.copy(this.camera.quaternion);this.pick(e);},options);
     canvas.addEventListener('pointermove',e=>{if(this.menu){this.lobbyRotation.move(e.pointerId,e.clientX,e.clientY,e.timeStamp);return;}this.gesture.move(e.pointerId,e.clientX,e.clientY);this.pick(e);},options);
-    canvas.addEventListener('pointerup',e=>{if(e.button!==0)return;if(this.menu){this.lobbyRotation.end(e.pointerId,e.timeStamp);if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);canvas.style.cursor='grab';return;}const click=this.gesture.end(e.pointerId,e.clientX,e.clientY);if(click&&!this.busy){this.pick(e);if(this.hover)this.onCell(this.hover.userData.cell);}},options);
+    canvas.addEventListener('pointerup',e=>{if(e.button!==0)return;if(this.menu){this.lobbyRotation.end(e.pointerId,e.timeStamp);if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);canvas.style.cursor='grab';return;}const click=this.gesture.end(e.pointerId,e.clientX,e.clientY);if(this.cameraAtPress.angleTo(this.camera.quaternion)>.03)this.onCameraRotate();if(click&&!this.busy){this.pick(e);if(this.hover)this.onCell(this.hover.userData.cell);}},options);
     canvas.addEventListener('pointerleave',()=>{this.gesture.cancel();this.clearHover();},options);
     canvas.addEventListener('pointercancel',()=>{this.gesture.cancel();this.lobbyRotation.cancel(performance.now());this.clearHover();},options);
     canvas.addEventListener('lostpointercapture',()=>{if(this.lobbyRotation.dragging)this.lobbyRotation.cancel(performance.now());},options);
     window.addEventListener('blur',()=>this.lobbyRotation.cancel(performance.now()),options);
-    this.loop=new FrameLoop(this.frame);document.addEventListener('visibilitychange',()=>this.updateLoop(),options);
-    this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(host);this.resize();this.updateLoop();
   }
-  resize(){const {width,height}=this.host.getBoundingClientRect();this.camera.aspect=width/Math.max(height,1);this.camera.fov=T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(20))*Math.max(1,.95/this.camera.aspect)));this.camera.updateProjectionMatrix();this.renderer.getSize(this.hintViewport);if(this.hintViewport.x!==width||this.hintViewport.y!==height)this.renderer.setSize(width,height);}
+  resize(){const {width,height}=this.host.getBoundingClientRect();this.mobile=width<768;this.camera.aspect=width/Math.max(height,1);this.camera.fov=T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(20))*Math.max(1,.95/this.camera.aspect)));this.camera.updateProjectionMatrix();this.renderer.getSize(this.hintViewport);if(this.hintViewport.x!==width||this.hintViewport.y!==height)this.renderer.setSize(width,height);}
   resetCamera(){const scale=this.menu?1:(this.puzzle?.size??3)/3;this.controls.minDistance=6*scale;this.controls.maxDistance=13*scale;const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.target.set(0,0,0);this.camera.position.set(6*scale,4.8*scale,7.6*scale);this.controls.update();this.controls.enableDamping=damping;}
   setMenu(value:boolean){const wasMenu=this.menu;this.menu=value;this.group.visible=!value;if(this.hints)this.hints.group.visible=!value&&this.hints.count>0;this.panels.forEach(p=>p.visible=!value);this.decoration.visible=value;this.controls.enabled=!value;this.renderer.shadowMap.enabled=!value;const ratio=Math.min(devicePixelRatio,value?1.5:2);if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);this.clearHover();this.gesture.cancel();if(value||wasMenu)this.resetCamera();}
-  setAppActive(active:boolean){this.appActive=active;this.updateLoop();}
-  private updateLoop(){const active=this.appActive&&!document.hidden;this.lobbyRotation.suspend(!active,performance.now());this.lastFrame=0;if(active)this.loop.start();else{this.loop.pause();this.gesture.cancel();this.lobbyRotation.cancel(performance.now());}}
+  setAppActive(active:boolean){this.appActive=active;if(!active)this.cancelInput();this.updateLoop();}
+  private updateLoop(){const active=this.appActive&&!document.hidden;this.lobbyRotation.suspend(!active,performance.now());this.lastFrame=0;if(active)this.loop.start();else{this.loop.pause();this.cancelInput();this.lobbyRotation.cancel(performance.now());}}
   setLobbyRegion(bounds:DOMRect|null){
     const entering=!!bounds&&!this.lobbyRotation.active;
     this.lobbyRotation.setActive(!!bounds,performance.now());
@@ -90,6 +99,11 @@ export class Scene {
     }
     this.resize();
   }
+  cancelInput(){this.gesture.cancel();}
+  celebrate(active:boolean){
+    if(active){if(this.celebrationAt!==null)return;this.cancelInput();this.clearHover();this.controlsBeforeVictory=this.controls.enabled;this.directionsBeforeVictory=this.directions.visible;this.controls.enabled=false;this.directions.visible=false;this.celebrationAt=performance.now();this.victoryPresentation.start(this.group,this.panels,this.camera,this.celebrationAt,this.reduced);}
+    else if(this.celebrationAt!==null){this.victoryPresentation.cancel();this.celebrationAt=null;this.controls.enabled=this.controlsBeforeVictory;this.directions.visible=this.directionsBeforeVictory;for(const cube of this.objects)if(!cube.userData.empty)(cube.material as T.MeshStandardMaterial).emissiveIntensity=cube.userData.emission;}
+  }
   setInteraction(tool:Tool,remaining:number,editing=false){this.clearHover();this.tool=tool;this.remaining=remaining;this.editing=editing;}
   setHints(steps:NumberedHint[]){this.hints.set(steps,this.puzzle?.cells??[]);this.hints.group.quaternion.copy(this.group.quaternion);this.hints.group.visible=!this.menu&&steps.length>0;}
   clearHover(){if(this.hover){const material=this.hover.material as T.MeshStandardMaterial;material.emissiveIntensity=this.hover.userData.emission;material.emissive.setHex(this.hover.userData.emissive);if(this.hover.userData.empty){const visible=this.showEmpty&&(this.editing||!!this.puzzle?.canPlace(this.hover.userData.cell));material.opacity=visible?.09:0;this.hover.children[0].visible=visible;}this.hover=null;}}
@@ -97,17 +111,31 @@ export class Scene {
     this.clearHover();if(!cell||this.busy||this.menu)return;
     const cube=this.objects.find(o=>key(o.userData.cell)===key(cell));if(!cube)return;
     if(!this.editing&&(this.tool==='place'?(!cube.userData.empty||!this.puzzle?.canPlace(cell)):cube.userData.empty))return;
-    this.hover=cube;const material=cube.material as T.MeshStandardMaterial;material.emissiveIntensity=.9;
-    if(this.tool==='remove'&&!this.editing)material.emissive.setHex(removalHighlight(cube.userData.fixed,!!this.puzzle?.canRemove(cell)));
+    this.hover=cube;const material=cube.material as T.MeshStandardMaterial;
+    if(cube.userData.empty)material.emissiveIntensity=this.mobile?.38:.5;
     if(cube.userData.empty){material.opacity=.38;cube.children[0].visible=true;}
   }
   pick(e:PointerEvent){
     this.clearHover();const r=this.renderer.domElement.getBoundingClientRect();this.mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);this.ray.setFromCamera(this.mouse,this.camera);
-    if(this.busy||this.menu)return;
+    if(this.busy||this.menu||this.celebrationAt!==null&&this.celebrationAt!==undefined)return;
     this.group.updateWorldMatrix(true,true);
-    const hits=this.ray.intersectObjects(this.objects.filter(o=>o.visible&&(this.editing||!o.userData.empty||this.tool==='place'&&this.showEmpty&&!!this.puzzle?.canPlace(o.userData.cell))),false);
+    const hits=this.ray.intersectObjects(this.objects.filter(o=>o.visible&&(this.editing||!o.userData.empty)),false);
     const hit=hits[0];
-    if(hit){
+    let empty:T.Intersection|undefined;
+    if(!this.editing&&this.tool==='place'){
+      const candidates=this.ray.intersectObjects(this.objects.filter(o=>o.visible&&o.userData.empty&&this.puzzle?.canPlace(o.userData.cell)),false);
+      if(!hit)empty=candidates[0];
+      else{
+        // An occupied cube behind a vacant cell must not swallow a tap aimed at
+        // that cell. Compare projected centres to retain taps on the cube
+        // itself; never select a vacant cell hidden behind an occupied surface.
+        const distance=(o:T.Object3D)=>{const p=o.getWorldPosition(new T.Vector3()).project(this.camera);return (p.x-this.mouse.x)**2+(p.y-this.mouse.y)**2;};
+        let nearest=distance(hit.object);
+        for(const candidate of candidates){const d=distance(candidate.object);if(candidate.distance<hit.distance-1e-4&&d<nearest-1e-8){empty=candidate;nearest=d;}}
+      }
+    }
+    if(empty)this.preview(empty.object.userData.cell);
+    else if(hit){
       if(this.editing||this.tool==='remove'||hit.object.userData.empty)this.preview(hit.object.userData.cell);
       else if(hit.face){
         // face.normal is in the cube's local axes, just like grid coordinates.
@@ -122,12 +150,8 @@ export class Scene {
     this.clearHover();
     const resized=(this.puzzle?.size??3)!==p.size;this.puzzle=p;if(resized&&!this.menu)this.resetCamera();
     this.showEmpty=showEmpty;
-    const occupied=new Set(p.cells.map(key));
-    for(const old of this.fading){this.scene.remove(old);this.disposeCube(old);}this.fading=[];
     for(const child of [...this.group.children]){
-      if(child instanceof T.Mesh&&this.lastOccupied.has(key(child.userData.cell))&&!occupied.has(key(child.userData.cell))&&!this.reduced){
-        child.updateWorldMatrix(true,false);const world=child.matrixWorld.clone();this.group.remove(child);this.scene.add(child);world.decompose(child.position,child.quaternion,child.scale);this.fading.push(child);
-      }else{this.group.remove(child);this.disposeCube(child);}
+      this.group.remove(child);this.disposeCube(child);
     }
     this.objects=[];
     for(const cell of gridCells(p.size)){
@@ -137,7 +161,7 @@ export class Scene {
       const appearance=fixed?blockAppearance.fixed:blockAppearance.player;
       const material=new T.MeshStandardMaterial({color:full?appearance.body:0x7de4c5,metalness:full?.42:.1,roughness:.4,emissive:full?appearance.emissive:0x276b60,emissiveIntensity:full?appearance.emission:.3,transparent:!full,opacity:full?1:showEmpty?.09:0,depthWrite:full});
       const cube=new T.Mesh(this.geometry,material);cube.position.set(...cell);cube.castShadow=full;cube.receiveShadow=full;cube.userData={cell,empty:!full,fixed,placed,emissive:material.emissive.getHex(),emission:material.emissiveIntensity};
-      const edges=new T.LineSegments(this.edgeGeometry,new T.LineBasicMaterial({color:full?appearance.edge:0x98ebc8,transparent:true,opacity:full?.8:.55}));edges.visible=full||showEmpty&&(this.editing||p.canPlace(cell));cube.add(edges);
+      const edges=new T.LineSegments(this.edgeGeometry,new T.LineBasicMaterial({color:full?appearance.edge:0x98ebc8,transparent:true,opacity:full?.55:.4,depthTest:true,depthWrite:false}));edges.visible=full||showEmpty&&(this.editing||p.canPlace(cell));cube.add(edges);
       if(!full&&!this.editing&&!p.canPlace(cell))material.opacity=0;
       if(full){
         const cornerMat=new T.MeshStandardMaterial({color:appearance.corner,metalness:.85,roughness:.25}),corners=new T.InstancedMesh(this.cornerGeometry,cornerMat,8),transform=new T.Matrix4();let i=0;
@@ -145,7 +169,6 @@ export class Scene {
       }
       this.group.add(cube);this.objects.push(cube);
     }
-    this.lastOccupied=occupied;this.effectStart=performance.now();
     this.target.setFromRotationMatrix(matrix(p.orientation));
     if(animate&&!this.reduced){this.from.copy(this.group.quaternion);this.start=performance.now();this.busy=true;}else{this.group.quaternion.copy(this.target);this.busy=false;}
     this.updateProjections(p,mode);
@@ -173,18 +196,16 @@ export class Scene {
   frame=()=>{
     if(this.destroyed)return;
     const now=performance.now(),delta=this.lastFrame?Math.min(.1,Math.max(0,(now-this.lastFrame)/1000)):0;this.lastFrame=now;
-    if(!this.menu)this.controls.update();
+    if(this.celebrationAt!==null){this.victoryPresentation.update(now);const glow=(this.reduced?.03:.09)*Math.sin(Math.min(1,(now-this.celebrationAt)/victoryDuration)*Math.PI);for(const cube of this.objects)if(!cube.userData.empty)(cube.material as T.MeshStandardMaterial).emissiveIntensity=cube.userData.emission+glow;}
+    if(!this.menu&&this.celebrationAt===null)this.controls.update();
     if(this.busy){const t=Math.min((performance.now()-this.start)/420,1);this.group.quaternion.slerpQuaternions(this.from,this.target,t*t*(3-2*t));if(t===1){this.busy=false;this.onSettled();}}
-    const effect=Math.min((performance.now()-this.effectStart)/250,1);
-    for(const cube of this.fading)cube.scale.setScalar(Math.max(.001,1-effect));
-    if(effect===1){for(const cube of this.fading){this.scene.remove(cube);this.disposeCube(cube);}this.fading=[];}
     if(!this.reduced)this.sparks.rotation.y+=.018*delta;
     if(this.lobbyRotation.active){this.lobbyRotation.suspend(!!document.querySelector('dialog[open]'),now);this.lobbyRotation.step(now,this.reduced);this.decoration.rotation.set(0,this.lobbyRotation.yaw,0);}
     if(!this.menu){this.hints.group.quaternion.copy(this.group.quaternion);this.renderer.getSize(this.hintViewport);this.hints.layout(this.camera,this.hintViewport.x,this.hintViewport.y);}
     this.renderer.render(this.scene,this.camera);
   };
   dispose(){
-    if(this.destroyed)return;this.destroyed=true;this.loop.dispose();this.observer.disconnect();this.listeners.abort();this.controls.dispose();
+    if(this.destroyed)return;this.destroyed=true;this.celebrate(false);this.cancelInput();this.loop.dispose();this.observer.disconnect();this.listeners.abort();this.controls.dispose();
     this.hints.set([],[]);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     this.scene.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.LineSegments||o instanceof T.Points){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);if(o instanceof T.InstancedMesh)o.dispose();}});

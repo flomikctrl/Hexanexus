@@ -20,15 +20,15 @@ describe('Изменение только представления сцены'
     view.updateProjections(p,'normal');expect(JSON.stringify(p)).toBe(before);expect(view.group.children[0]).toBe(cube);expect(view.panels[0].children).toEqual(panelRefs[0]);
     view.panels.forEach(panel=>expect(panel.children.slice(2).every(tile=>['goal','empty'].includes(tile.userData.style))).toBe(true));
   });
-  it('использует разные непрозрачные материалы основы и игрока и разные цвета наведения',()=>{
+  it('сохраняет непрозрачные материалы без подсветки удаления при касании',()=>{
     const fixed:Vec=[0,0,0],player:Vec=[1,0,0];
     const l:Level={name:'Материалы',fixed:[fixed],available:[player],limit:1,orientation:identity(),targets:project([fixed,player],identity())};const p=new Puzzle(l);p.place(player);
     const before=JSON.stringify(p),view=Object.create(Scene.prototype) as Scene;
     Object.assign(view,{hover:null,busy:false,menu:false,editing:false,tool:'remove',puzzle:p,objects:[]});
     for(const [cell,isFixed] of [[fixed,true],[player,false]] as const){const appearance=isFixed?blockAppearance.fixed:blockAppearance.player;const material=new T.MeshStandardMaterial({color:appearance.body,emissive:appearance.emissive,emissiveIntensity:appearance.emission,transparent:false,opacity:1});const cube=new T.Mesh(new T.BoxGeometry(),material);cube.userData={cell,fixed:isFixed,placed:!isFixed,empty:false,emissive:appearance.emissive,emission:appearance.emission};view.objects.push(cube);}
     expect(blockAppearance.fixed.body).not.toBe(blockAppearance.player.body);expect(blockAppearance.fixed.corner).not.toBe(blockAppearance.player.corner);
-    view.preview(fixed);expect(view.hover).toBe(view.objects[0]);expect((view.hover!.material as T.MeshStandardMaterial).emissive.getHex()).toBe(0xffb84d);expect(p.remove(fixed)).toBe(false);
-    view.preview(player);expect(view.hover).toBe(view.objects[1]);expect((view.hover!.material as T.MeshStandardMaterial).emissive.getHex()).toBe(0xee3525);
+    view.preview(fixed);expect(view.hover).toBe(view.objects[0]);expect((view.hover!.material as T.MeshStandardMaterial).emissive.getHex()).toBe(blockAppearance.fixed.emissive);expect(p.remove(fixed)).toBe(false);
+    view.preview(player);expect(view.hover).toBe(view.objects[1]);expect((view.hover!.material as T.MeshStandardMaterial).emissive.getHex()).toBe(blockAppearance.player.emissive);
     expect((view.objects[0].material as T.MeshStandardMaterial).emissive.getHex()).toBe(blockAppearance.fixed.emissive);
     for(const cube of view.objects){const m=cube.material as T.MeshStandardMaterial;expect(m.transparent).toBe(false);expect(m.opacity).toBe(1);}
     view.clearHover();expect(JSON.stringify(p)).toBe(before);

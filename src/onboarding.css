@@ -1,0 +1,7 @@
+#learning-panel{position:fixed;top:calc(78px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 28px));padding:12px 16px;background:#13362ff2;border:1px solid #d0b57870;border-radius:14px;z-index:12;text-align:center;pointer-events:none}
+#learning-panel h3{font-size:18px;color:#edddb2;margin:4px 0 6px}#learning-panel p{font-size:14px;line-height:1.4;color:#c7d7c5}#learning-panel small{font-size:11px;letter-spacing:.8px}#learning-skip{pointer-events:auto;margin-top:8px;min-height:44px;font-size:13px;padding:6px 12px}
+body[data-learning=true] .game-footer button:not([data-learning-action=true]){opacity:.45}
+body[data-learning=true] [data-learning-action=true]{border-color:#e1c885;box-shadow:0 0 0 2px #cbb77b38}
+body[data-learning=true] #projection-help{top:calc(220px + env(safe-area-inset-top,0px))}
+#learning-confirm button{display:block;width:100%;min-height:44px;margin-top:10px}
+@media(max-height:500px) and (orientation:landscape){#learning-panel{left:14px;top:calc(72px + env(safe-area-inset-top,0px));width:230px;transform:none;padding:10px}#learning-panel h3{font-size:16px}#learning-panel p{font-size:13px}body[data-learning=true] #projection-help{left:auto;right:14px;top:78px;transform:none;width:220px}}

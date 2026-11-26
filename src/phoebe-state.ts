@@ -12,10 +12,7 @@ export type PhoebeEvent=
   |{type:'diagnostics';hasErrors:boolean}
   |{type:'forbidden';reason:'fixed'|'stock'|'disconnected'|'other'};
 export interface PhoebeState {enabled:boolean;emotion:PhoebeEmotion;animation:PhoebeAnimation;message:string}
-export const phoebeSettingKey='hexanexus.phoebe.enabled';
 const idle=(enabled:boolean):PhoebeState=>({enabled,emotion:'IDLE',animation:'idle',message:''});
-export function readPhoebeSetting(storage:Pick<Storage,'getItem'>){try{return storage.getItem(phoebeSettingKey)!=='false';}catch{return true;}}
-export function savePhoebeSetting(storage:Pick<Storage,'setItem'>,enabled:boolean){try{storage.setItem(phoebeSettingKey,String(enabled));return true;}catch{return false;}}
 
 // This controller receives notifications only; it has no access to the puzzle.
 export class PhoebeController {

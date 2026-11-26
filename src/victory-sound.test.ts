@@ -1,0 +1,6 @@
+import {it,expect,vi,afterEach} from 'vitest';
+import {VictorySound} from './victory-sound';
+afterEach(()=>vi.unstubAllGlobals());
+function audio(){const play=vi.fn(async()=>{}),pause=vi.fn(),element={id:'',muted:false,currentTime:0,volume:0,play,pause,addEventListener:vi.fn()};vi.stubGlobal('Audio',class{constructor(){return element}});vi.stubGlobal('document',{body:{append:vi.fn()}});return{element,play,pause};}
+it('подготавливает тот же элемент без звука и запускает ровно один эффект',async()=>{const a=audio(),sound=new VictorySound();const unlocked=sound.unlock();expect(a.element.muted).toBe(true);await unlocked;expect(a.element.muted).toBe(false);expect(a.pause).toHaveBeenCalledTimes(1);expect(await sound.play(.3)).toBe(true);expect(await sound.play(.3)).toBe(false);expect(a.play).toHaveBeenCalledTimes(2);expect(a.element.volume).toBeCloseTo(.6375);sound.stop();expect(a.pause).toHaveBeenCalledTimes(2);});
+it('нулевая громкость не запускает звук; отмена исключает запоздалое воспроизведение',async()=>{const a=audio(),sound=new VictorySound();expect(await sound.play(0)).toBe(false);expect(a.play).not.toHaveBeenCalled();const pending=sound.play(.3);sound.stop();expect(await pending).toBe(false);expect(a.play).toHaveBeenCalledTimes(1);});

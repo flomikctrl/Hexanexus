@@ -19,4 +19,12 @@ for(const skin of skins)for(const emotion of emotions){
  if(!transparent||!visible)throw Error('Missing transparent background or character: '+path);
  report.push({skin,emotion,width,height,transparent,visible,bounds:[minX,minY,maxX,maxY],sha256:createHash('sha256').update(png).digest('hex')});
 }
+// The replacement sprites must use the same visual canvas as classic/sleepy.
+for(const skin of ['baker','winter','cosmic']){
+ const sprites=report.filter(sprite=>sprite.skin===skin);
+ for(const sprite of sprites){
+  const [left,top,right,bottom]=sprite.bounds;
+  if(right-left+1<925||right-left+1>948||Math.abs((left+right)/2-511.5)>2||Math.abs(bottom-999)>2||top<220||top>305||sprite.visible<390000||sprite.visible>500000)throw Error('Sprite scale/alignment regression: '+skin+'/'+sprite.emotion);
+ }
+}
 await mkdir('artifacts',{recursive:true});await writeFile('artifacts/motya-assets.json',JSON.stringify(report,null,2));console.table(report.map(({skin,emotion,transparent,bounds})=>({skin,emotion,transparent,bounds:bounds.join(',')})));

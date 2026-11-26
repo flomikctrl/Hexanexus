@@ -35,7 +35,7 @@ describe('Расширение существующей кампании',()=>{
   expect(nextLevelIndex(9,levels.length)).toBe(10);expect(isFinalLevel(9,levels.length)).toBe(false);
   expect(isFinalLevel(29,levels.length)).toBe(true);expect(nextLevelIndex(29,levels.length)).toBeNull();
  });
- it('сохраняет оригинальную музыку байт в байт',()=>{
-  expect(createHash('sha256').update(readFileSync(new URL('../public/audio/silhouette-loop.wav',import.meta.url))).digest('hex')).toBe('a82cafd6d8d67c1cb18a13390322c2a1d618ebb5808c5f884949123f52e75d9d');
+ it('содержит оригинальную переработанную музыку вместо прежней записи',()=>{
+  expect(createHash('sha256').update(readFileSync(new URL('../public/audio/silhouette-loop.wav',import.meta.url))).digest('hex')).not.toBe('a82cafd6d8d67c1cb18a13390322c2a1d618ebb5808c5f884949123f52e75d9d');
  });
 });

@@ -7,5 +7,5 @@ export function createLobbyFigure(bodyGeometry:T.BufferGeometry,edgeGeometry:T.B
  lobbyCells.forEach((cell,index)=>{body.setMatrixAt(index,transform.makeTranslation(...cell));for(let vertex=0;vertex<source.count;vertex++)for(let axis=0;axis<3;axis++)positions[(index*source.count+vertex)*3+axis]=source.getComponent(vertex,axis)+cell[axis];});
  body.instanceMatrix.needsUpdate=true;body.computeBoundingSphere();
  const edges=new T.BufferGeometry();edges.setAttribute('position',new T.BufferAttribute(positions,3));
- group.add(body,new T.LineSegments(edges,new T.LineBasicMaterial({color:0x98cfb7})));group.position.set(1,.25,0);return group;
+ group.add(body,new T.LineSegments(edges,new T.LineBasicMaterial({color:0x70a899,transparent:true,opacity:.6,depthTest:true,depthWrite:false})));group.position.set(1,.25,0);return group;
 }

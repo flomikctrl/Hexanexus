@@ -33,6 +33,7 @@ import {Onboarding,learningSteps} from './onboarding';
 import './onboarding.css';
 import {CompletionDelay} from './completion';
 import {Customization} from './customization';
+import {DuelsUI} from './duels/ui';
 
 document.querySelector('#app')!.innerHTML=`<div id="world"></div>
 <main id="home" class="screen"><div class="home-copy"><h1>Гексанексус</h1><div class="home-actions"><button id="play" class="primary">Кампания</button><button id="choose-level">Выбор уровней</button><button id="open-wardrobe">Костюмы и подарки</button><button id="open-settings">Настройки</button></div></div></main>
@@ -78,17 +79,19 @@ let index=progress.current,puzzle=new Puzzle(levels[index]),draft:Level=structur
 let selectedGroup=Math.floor(index/5);
 el('level-cards').insertAdjacentHTML('beforebegin','<nav id="level-groups" aria-label="Группы уровней"></nav><h3 id="level-group-name"></h3>');
 if(progress.resume?.level===puzzle.level.name){for(const p of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(p);puzzle.history=[];}
-let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'|'achievements'|'profile'|'campaigns'='home';
+let savedPuzzle=puzzle,custom=false,editing=false,screen:'home'|'levels'|'game'|'editor'|'wardrobe'|'achievements'|'profile'|'campaigns'|'duels'='home';
 let tool:Tool='place',projectionMode:ProjectionMode='normal',winShown=false;
 const customization=new Customization(rewardStorage);document.body.dataset.fieldBackground=customization.settings.background;
 const view=new Scene(el('world'),customization.settings);
 const motya=new MotyaAssistant(skin=>skin==='classic'||(skin==='royal'?rewards.royalUnlocked:economy.ready&&(skin==='architect'?economy.architectUnlocked:economy.gifts.owned.includes(skin))),economy.ready);
 const wardrobe=new MotyaWardrobe(motya,()=>showScreen('home'),economy,customization,settings=>{document.body.dataset.fieldBackground=settings.background;view.setAppearance(settings);});
 let arcade:ArcadeUI|undefined;
+let duels:DuelsUI|undefined;
 let achievementsFromProfile=false;
 new EconomyUI(economy,motya,()=>{achievementsFromProfile=false;showScreen('achievements');},()=>showScreen(achievementsFromProfile?'profile':'home'));
-const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!custom&&!editing&&!learningActive&&!arcade?.active,message,economy);
+const campaignHints=new CampaignHints(view,()=>puzzle,()=>screen==='game'&&!custom&&!editing&&!learningActive&&!arcade?.active&&!duels?.active,message,economy);
 arcade=new ArcadeUI(view,motya,()=>showScreen('game'),()=>showScreen('home'),message,economy);
+duels=new DuelsUI(view,()=>({name:economy.profile.name,skin:economy.profile.avatar.skin,emotion:economy.profile.avatar.emotion}),()=>showScreen('game'),()=>showScreen('duels'),()=>showScreen('home'),()=>{music.victory();motya.notify({type:'level-win'});motya.beginVictoryPresentation();});
 const lobby=new Lobby(view);
 const playerProfile=new PlayerProfileUI(economy,{completed:()=>firstProgress.completed,completedSecond:()=>secondProgress.completed,records:()=>readArcadeRecords(rewardStorage),canUse:id=>motya.isSkinUnlocked(id),worn:()=>motya.skin},()=>showScreen('profile'),()=>showScreen('home'),()=>{achievementsFromProfile=true;showScreen('achievements');},()=>showScreen('wardrobe'));
 const campaignSelection=new CampaignSelection(id=>id==='first'?firstProgress:secondProgress,selectCampaign,()=>showScreen('home'));
@@ -116,6 +119,7 @@ function showScreen(next:typeof screen,previewSkin?:MotyaSkinId){
   document.body.classList.toggle('editing',next==='editor');view.setMenu(next!=='game'&&next!=='editor');
   lobby.setVisible(next==='home');
   playerProfile.setVisible(next==='profile');campaignSelection.setVisible(next==='campaigns');
+  duels?.setVisible(next==='duels');
   motya.setScreen(next);if(next==='wardrobe')wardrobe.open(previewSkin);
   if(next==='home'||next==='levels'||next==='wardrobe'||next==='profile'||next==='campaigns'){view.directions.visible=false;}
   if(next==='levels'){selectedGroup=Math.floor(index/5);el('level-screen').querySelector('h2')!.textContent=campaigns[campaignId].label+' · '+campaigns[campaignId].name;el('levels-back').textContent='← Кампании';drawCards();}draw();
@@ -131,7 +135,7 @@ function loadLevel(i:number){cancelVictoryPresentation();if(!campaignUnlocked(ca
  if(progress.resume?.level===puzzle.level.name){for(const cell of connectedOrder(puzzle.level.fixed,progress.resume.placed)??[])puzzle.place(cell);puzzle.history=[];if(puzzle.won&&progress.completed.includes(puzzle.level.name))puzzle=new Puzzle(structuredClone(levels[i]));}
  savedPuzzle=puzzle;winShown=false;save();view.resetCamera();setTool('place');startGame();}
 function checkWin(){
- if(learningActive||arcade?.active||editing||screen!=='game')return;
+ if(learningActive||arcade?.active||duels?.active||editing||screen!=='game')return;
  if(!puzzle.won){winShown=false;return;}campaignHints.clear();if(winShown)return;winShown=true;
  if(!custom&&!progress.completed.includes(levels[index].name)){progress.completed.push(levels[index].name);save();}
  if(!custom){if(campaignId==='first')economy.syncCampaign(firstProgress.completed);else economy.syncSecondCampaign(secondProgress.completed);}
@@ -151,6 +155,7 @@ function checkWin(){
 }
 function draw(){
   view.setGameFraming(screen==='game'&&!learningActive);
+  if(duels?.active){campaignHints.clear();duels.draw();return;}
   if(arcade?.active){campaignHints.clear();arcade.draw();return;}
   if(screen!=='game'&&screen!=='editor'){campaignHints.refresh();return;}
   if(editing)campaignHints.clear();
@@ -190,9 +195,10 @@ function setProjectionMode(mode:ProjectionMode){
   if(mode==='training')motya.notify({type:'diagnostics',hasErrors:diagnose(puzzle.level.targets,puzzle.projections).some(r=>r.matches<puzzle.size**2)});
   if(learningActive&&mode==='training')advanceLearning('silhouettes');
 }
-function setTool(next:Tool){if(arcade?.active){arcade.setTool(next);return;}tool=next;el('place').classList.toggle('active',tool==='place');el('remove').classList.toggle('active',tool==='remove');el('place').setAttribute('aria-pressed',String(tool==='place'));el('remove').setAttribute('aria-pressed',String(tool==='remove'));draw();}
+function setTool(next:Tool){if(duels?.active){duels.setTool(next);return;}if(arcade?.active){arcade.setTool(next);return;}tool=next;el('place').classList.toggle('active',tool==='place');el('remove').classList.toggle('active',tool==='remove');el('place').setAttribute('aria-pressed',String(tool==='place'));el('remove').setAttribute('aria-pressed',String(tool==='remove'));draw();}
 function clickCell(cell:Vec,action:Tool=tool){
   if(completion.pending||document.querySelector('dialog[open]'))return;
+  if(duels?.active){duels.act(cell,action);return;}
   if(learningActive){if(!onboarding.accepts(action,cell))return;if(act(puzzle,action,cell)){advanceLearning(action==='remove'?'remove':puzzle.won?'solve':'place');if(learningActive)draw();}return;}
   if(arcade?.active){arcade.act(cell,action);return;}
   if(screen!=='game'&&screen!=='editor')return;
@@ -212,7 +218,7 @@ view.onCameraRotate=()=>{if(learningActive)advanceLearning('rotate');};
 // Observe a rejected zero-stock click without changing the scene's Raycaster
 // or sending an action to the puzzle. A separate gesture guard filters drags.
 const motyaGesture=new PointerTapGesture();let emptyStockAtPress=false,emptyStockPressAt=0;
-view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockPressAt=event.timeStamp;emptyStockAtPress=!arcade?.active&&screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
+view.renderer.domElement.addEventListener('pointerdown',event=>{if(event.button!==0)return;motyaGesture.begin(event.pointerId,event.clientX,event.clientY);emptyStockPressAt=event.timeStamp;emptyStockAtPress=!duels?.active&&!arcade?.active&&screen==='game'&&tool==='place'&&puzzle.placed.length>=puzzle.level.limit&&!puzzle.won;});
 view.renderer.domElement.addEventListener('pointermove',event=>motyaGesture.move(event.pointerId,event.clientX,event.clientY));
 view.renderer.domElement.addEventListener('pointerup',event=>{if(event.button!==0)return;if(motyaGesture.end(event.pointerId,event.clientX,event.clientY)&&event.timeStamp-emptyStockPressAt<600&&emptyStockAtPress&&screen==='game'&&tool==='place'&&view.ray.intersectObjects(view.objects.filter(o=>o.visible&&!o.userData.empty),false)[0]?.object.userData.fixed)motya.notify({type:'forbidden',reason:'stock'});emptyStockAtPress=false;});
 for(const type of ['pointerleave','pointercancel'])view.renderer.domElement.addEventListener(type,()=>{motyaGesture.cancel();emptyStockAtPress=false;});
@@ -232,7 +238,7 @@ function drawCards(){
 function closeDialog(id:string){if(id==='victory'||id==='campaign-complete')cancelVictoryPresentation();el<HTMLDialogElement>(id).close();}
 let settingsFromPause=false;
 function openSettings(fromPause=false){settingsFromPause=fromPause;motya.setScreen('settings');view.controls.enabled=false;el<HTMLDialogElement>('settings').showModal();}
-function openPause(){if(completion.pending)return;view.cancelInput();if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
+function openPause(){if(completion.pending)return;view.cancelInput();if(duels?.active){duels.pause();return;}if(arcade?.active){arcade.pause();return;}view.controls.enabled=false;el<HTMLDialogElement>('pause').showModal();}
 el<HTMLDialogElement>('pause').addEventListener('close',()=>{view.controls.enabled=screen==='game'||screen==='editor';});
 el('open-wardrobe').onclick=()=>showScreen('wardrobe');
 el('open-settings').onclick=()=>openSettings();el('settings-close').onclick=()=>closeDialog('settings');
@@ -244,10 +250,11 @@ backNavigation=new BackNavigation({
   if(wardrobe.closeGiftResult())return true;
   const dialog=Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]')).filter(d=>d.id!=='lobby-menu').at(-1);if(!dialog)return false;
   if(dialog.id==='arcade-pause')arcade?.resume();
+  else if(dialog.id==='duels-result')duels?.leave();
   else if(dialog.id==='arcade-results')el('arcade-result-home').click();
   else dialog.close();return true;
  },
- closeMenu:()=>lobby.back(),screen:()=>screen,home:()=>showScreen(screen==='levels'?'campaigns':screen==='achievements'&&achievementsFromProfile?'profile':'home'),
+ closeMenu:()=>lobby.back(),screen:()=>screen,home:()=>{if(screen==='duels')duels?.leave();else showScreen(screen==='levels'?'campaigns':screen==='achievements'&&achievementsFromProfile?'profile':'home');},
  pause:()=>{if(arcade?.active)arcade.pause(true);else openPause();},
  hintExit:()=>lobby.hintExit(),exit:()=>{if(Capacitor.getPlatform()==='android')void App.exitApp();}
 });
@@ -258,12 +265,12 @@ if(Capacitor.getPlatform()==='android'){
  androidBinding=new AndroidBackBinding({back:fn=>App.addListener('backButton',fn),pause:fn=>App.addListener('pause',fn),resume:fn=>App.addListener('resume',fn)},backNavigation,active=>{view.setAppActive(active);if(!active){arcade?.pause(true);wardrobe.finishGiftAnimation();}});
  void androidBinding.start();
 }
-if(import.meta.hot)import.meta.hot.dispose(()=>{void androidBinding?.dispose();wardrobe.dispose();playerProfile.dispose();view.dispose();});
+if(import.meta.hot)import.meta.hot.dispose(()=>{void androidBinding?.dispose();duels?.dispose();wardrobe.dispose();playerProfile.dispose();view.dispose();});
 el('resume').onclick=()=>closeDialog('pause');el('pause-home').onclick=()=>{closeDialog('pause');showScreen('home');};el('pause-levels').onclick=()=>{closeDialog('pause');showScreen('levels');};
 el('camera-reset').onclick=()=>{view.resetCamera();closeDialog('pause');message('Ракурс восстановлен. Форма осталась на месте.');};
 el('initial-view').onclick=()=>{view.resetCamera();message('Начальный ракурс восстановлен.');};
 el('place').onclick=()=>setTool('place');el('remove').onclick=()=>setTool('remove');
-el('undo').onclick=()=>{if(arcade?.active||completion.pending||learningActive&&onboarding.step!==3)return;puzzle.undo();if(learningActive)advanceLearning('undo');draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active||learningActive||completion.pending)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
+el('undo').onclick=()=>{if(duels?.active){duels.undo();return;}if(arcade?.active||completion.pending||learningActive&&onboarding.step!==3)return;puzzle.undo();if(learningActive)advanceLearning('undo');draw();message('Последнее действие отменено.');};el('reset').onclick=()=>{if(arcade?.active||learningActive||completion.pending)return;campaignHints.clear();puzzle.reset();draw();message('Уровень сброшен.');};
 el<HTMLSelectElement>('projection-mode').onchange=e=>setProjectionMode((e.target as HTMLSelectElement).value as ProjectionMode);
 el('show-errors').onclick=()=>setProjectionMode(projectionMode==='normal'?'training':'normal');
 el('next').onclick=()=>{closeDialog('victory');const next=nextLevelIndex(index,levels.length);if(next!==null)loadLevel(next);else showScreen('levels');};el('continue').onclick=()=>closeDialog('victory');el('victory-levels').onclick=()=>{closeDialog('victory');showScreen('home');};

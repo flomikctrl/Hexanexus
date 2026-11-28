@@ -1,4 +1,5 @@
 import './profile.css';
+import {DuelRatingStore,duelRank,ratingSummary} from './duels/rating';
 import {Economy,achievements,hexics} from './economy';
 import {motyaSkins,skinById,skinSprite,type MotyaSkinId,type MotyaEmotion} from './motya-skins';
 import {profileTitles,campaignProfileStats,arcadeProfileStats,playerNameError,normalizedPlayerName,type ProfileTitleId,type ProfileFrameId} from './player-profile';
@@ -29,6 +30,7 @@ export class PlayerProfileUI {
   this.dialog.addEventListener('cancel',event=>{event.preventDefault();this.closeEditor();},{signal:this.events.signal});
   this.dialog.addEventListener('close',()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();},{signal:this.events.signal});
   this.host.addEventListener('click',event=>{const target=event.target as HTMLElement;if(target.closest('#profile-achievements'))achievementsRoute();if(target.closest('#profile-collection'))this.wardrobeRoute();},{signal:this.events.signal});
+  window.addEventListener('duels:rating',()=>this.refresh(),{signal:this.events.signal});this.host.addEventListener('click',e=>{if((e.target as HTMLElement).closest('#profile-duels')){this.el('profile-editor-title').textContent='Мотье побоище 1x1';this.el('profile-editor-content').textContent=ratingSummary(new DuelRatingStore(localStorage).data);this.el('profile-save').hidden=true;this.el('profile-cancel').textContent='Готово';this.dialog.showModal();}},{signal:this.events.signal});
   this.unsubscribe=economy.subscribe(()=>this.refresh());this.refresh();
  }
  private el<T extends HTMLElement=HTMLElement>(id:string){return document.getElementById(id) as T;}
@@ -46,6 +48,7 @@ export class PlayerProfileUI {
   const campaign=campaignProfileStats(this.sources.completed()),arcade=arcadeProfileStats(this.sources.records()),owned=motyaSkins.filter(s=>this.sources.canUse(s.id)).length;
   const second=campaignProfileStats(this.sources.completedSecond?.()??[],'second');
   this.el('profile-statistics').innerHTML=`<article class="profile-stat-card profile-campaign"><h3>Кампании</h3>${[campaign,second].map((c,i)=>`<div class="profile-campaign-row"><span>${i?'4×4×4':'3×3×3'}</span><progress value="${c.completed}" max="${c.total}" aria-label="${i?'Новая грань':'Первые силуэты'}: ${c.completed} из ${c.total}"></progress><strong data-profile-stat="${i?'campaign2':'campaign'}">${c.completed}/${c.total}</strong></div>`).join('')}</article><article class="profile-stat-card profile-arcade"><h3>Бесконечный режим</h3><dl><div><dt>Решено за партию</dt><dd data-profile-stat="solved">${arcade.solved}</dd></div><div><dt>Рекорд очков</dt><dd data-profile-stat="score">${arcade.score.toLocaleString('ru-RU')}</dd></div><div><dt>Лучшая серия</dt><dd data-profile-stat="streak">${arcade.streak}</dd></div></dl></article><article class="profile-stat-card profile-achievement-card"><h3>Достижения</h3><strong data-profile-stat="achievements">${this.economy.snapshot.achievements.length}/${achievements.length}</strong><button id="profile-achievements">Посмотреть</button></article><button id="profile-collection" class="profile-stat-card profile-collection"><span>Коллекция Моти <strong data-profile-stat="skins">${owned}/${motyaSkins.length}</strong></span><span>Из подарков <b data-profile-stat="gifts">${this.economy.gifts.owned.length}/${giftSkinIds.length}</b></span><span id="profile-worn"></span></button>`;
+  const duel=new DuelRatingStore(localStorage).data;this.host.querySelector('.profile-arcade')?.insertAdjacentHTML('beforeend',`<button id="profile-duels">Дуэли: ${duelRank(duel.cups)} · ${duel.cups} 🏆</button>`);
   this.el('profile-worn').textContent='В игре: '+skinById(this.sources.worn()).name;
   this.el('profile-status').textContent=this.economy.ready?'':'Профиль временно недоступен: '+this.economy.error;
   this.host.querySelectorAll<HTMLButtonElement>('#profile-customize,#profile-edit-name,#profile-avatar').forEach(b=>b.disabled=!this.economy.ready);

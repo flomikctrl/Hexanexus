@@ -1,8 +1,15 @@
 package com.hexanexus.puzzle;
 
 import com.getcapacitor.BridgeActivity;
+import android.os.Bundle;
 
 public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle state) {
+        registerPlugin(DuelHostPlugin.class);
+        super.onCreate(state);
+        // LAN WebSockets use Capacitor configuration; retain HTTPS localhost saves.
+    }
     private boolean returningFromBackground = false;
 
     // Some Android WebViews keep document.visibilityState "visible" on Home.

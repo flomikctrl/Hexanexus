@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Local Wi-Fi duels; single-player assets remain offline. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -37,5 +41,5 @@
 
     <!-- Permissions -->
 
-    <!-- All web assets are bundled; this application needs no network permission. -->
+    <!-- INTERNET is required for local WebSocket rooms. -->
 </manifest>

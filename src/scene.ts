@@ -52,6 +52,7 @@ export class Scene {
     this.clearHover();this.appearance.cube=settings.cube;this.appearance.background=settings.background;
     for(const cube of this.objects){if(cube.userData.empty)continue;const a=this.appearance.material(cube.userData.fixed),m=cube.material as T.MeshStandardMaterial;
       m.color.setHex(a.body);m.emissive.setHex(a.emissive);m.emissiveIntensity=a.emission;m.metalness=a.metalness;m.roughness=a.roughness;m.map=a.map;m.opacity=a.opacity;m.transparent=a.opacity<1;m.needsUpdate=true;cube.userData.emissive=a.emissive;cube.userData.emission=a.emission;
+      this.appearance.configure(m);
       ((cube.children[0] as T.LineSegments).material as T.LineBasicMaterial).color.setHex(a.edge);
       const corners=cube.children[1] as T.InstancedMesh|undefined;if(corners)(corners.material as T.MeshStandardMaterial).color.setHex(a.corner);
     }
@@ -177,6 +178,7 @@ export class Scene {
       const full=fixed||placed;
       const appearance=this.appearance?.material(fixed)??{...(fixed?blockAppearance.fixed:blockAppearance.player),metalness:.42,roughness:.4,opacity:1,map:null};
       const material=new T.MeshStandardMaterial({color:full?appearance.body:0x7de4c5,metalness:full?appearance.metalness:.1,roughness:full?appearance.roughness:.4,map:full?appearance.map:null,emissive:full?appearance.emissive:0x276b60,emissiveIntensity:full?appearance.emission:.3,transparent:!full||appearance.opacity<1,opacity:full?appearance.opacity:showEmpty?.09:0,depthWrite:full});
+      if(full)this.appearance?.configure(material);
       const cube=new T.Mesh(this.geometry,material);cube.position.set(...cell);cube.castShadow=full;cube.receiveShadow=full;cube.userData={cell,empty:!full,fixed,placed,emissive:material.emissive.getHex(),emission:material.emissiveIntensity};
       const edges=new T.LineSegments(this.edgeGeometry,new T.LineBasicMaterial({color:full?appearance.edge:0x98ebc8,transparent:true,opacity:full?.55:.4,depthTest:true,depthWrite:false}));edges.visible=full||showEmpty&&(this.editing||p.canPlace(cell));cube.add(edges);
       if(!full&&!this.editing&&!p.canPlace(cell))material.opacity=0;

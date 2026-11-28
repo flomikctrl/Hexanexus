@@ -1,6 +1,6 @@
 {
   "name": "hexanexus",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,17 +17,21 @@
     "hints:validate": "node scripts/validate-hints.mjs",
     "android:verify": "node scripts/verify-apk.mjs",
     "dev:editor": "vite --host 127.0.0.1 --open /?editor=1",
-    "motya:validate": "node scripts/validate-motya-assets.mjs"
+    "motya:validate": "node scripts/validate-motya-assets.mjs",
+    "duels:host": "node scripts/local-duels.mjs",
+    "android:duels": "node scripts/android-apk.mjs --test"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.6.0",
-    "three": "^0.180.0"
+    "three": "^0.180.0",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
     "@types/three": "^0.180.0",
+    "@types/ws": "^8.18.2",
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
     "vitest": "^5.1.0"

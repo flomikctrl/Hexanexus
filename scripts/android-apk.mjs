@@ -5,6 +5,7 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const release=process.argv.includes('--release');
+const lanPrototype=process.argv.includes('--lan-prototype');if(lanPrototype&&(release||!process.argv.includes('--test')))throw Error('LAN prototype requires --test');
 const version=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
 const localJava=join(root,'.tools','java');
 const portableJava=existsSync(localJava)?readdirSync(localJava).filter(n=>n.startsWith('jdk-21')).map(n=>join(localJava,n))[0]:undefined;
@@ -29,4 +30,4 @@ else await run('./gradlew',[task,'--no-daemon','--console=plain'],join(root,'and
 const apk=join(root,'android','app','build','outputs','apk',variant,`app-${variant}.apk`);
 if((await stat(apk)).size<100000)throw Error('APK отсутствует или подозрительно мал.');
 await mkdir(join(root,'release'),{recursive:true});const output=join(root,'release',release?`Hexanexus-v${version}.apk`:process.argv.includes('--test')?`Hexanexus-v${version}-test.apk`:'Hexanexus-Android.apk');await copyFile(apk,output);console.log(`\nГотовый APK: ${output}`);
-await run(process.execPath,[join(root,'scripts','verify-apk.mjs'),output]);
+await run(process.execPath,[join(root,'scripts','verify-apk.mjs'),output,...(lanPrototype?['--lan-prototype']:[])]);
